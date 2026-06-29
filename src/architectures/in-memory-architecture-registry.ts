@@ -31,7 +31,7 @@ export class InMemoryArchitectureRegistry implements ArchitectureRegistry {
     return this.architectures.has(name);
   }
 
-  public getArchitecture(name: ReviewArchitecture): IReviewArchitecture {
+  public get(name: ReviewArchitecture): IReviewArchitecture {
     const architecture = this.architectures.get(name);
     if (!architecture) {
       throw new UnknownArchitectureError(

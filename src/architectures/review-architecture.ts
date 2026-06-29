@@ -23,15 +23,20 @@ export interface IReviewArchitecture {
 }
 
 /**
- * Resolves a {@link IReviewArchitecture} implementation by name.
+ * Registers and resolves {@link IReviewArchitecture} implementations by name.
  *
- * This is the seam the Experiment Engine uses to select an architecture
- * without knowing any concrete implementation.
+ * This is the seam the Experiment Engine uses to select an architecture without
+ * knowing any concrete implementation. The engine depends only on this
+ * interface and only ever calls {@link get}; registration happens at composition
+ * time.
  */
 export interface ArchitectureRegistry {
+  /** Register (or replace) an architecture under its declared name. */
+  register(architecture: IReviewArchitecture): void;
+
   /**
    * Return the architecture registered under `name`.
    * @throws UnknownArchitectureError when no implementation is registered.
    */
-  getArchitecture(name: ReviewArchitecture): IReviewArchitecture;
+  get(name: ReviewArchitecture): IReviewArchitecture;
 }

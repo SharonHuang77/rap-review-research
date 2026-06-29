@@ -11,8 +11,8 @@ test("registry resolves a registered mock architecture", () => {
   registry.register(mock);
 
   assert.equal(registry.has("agentless"), true);
-  assert.equal(registry.getArchitecture("agentless"), mock);
-  assert.equal(registry.getArchitecture("agentless").name, "agentless");
+  assert.equal(registry.get("agentless"), mock);
+  assert.equal(registry.get("agentless").name, "agentless");
 });
 
 test("registry throws UnknownArchitectureError for an unregistered name", () => {
@@ -20,7 +20,7 @@ test("registry throws UnknownArchitectureError for an unregistered name", () => 
 
   assert.equal(registry.has("hierarchical"), false);
   assert.throws(
-    () => registry.getArchitecture("hierarchical"),
+    () => registry.get("hierarchical"),
     UnknownArchitectureError,
   );
 });
@@ -33,5 +33,5 @@ test("register replaces an existing architecture of the same name", () => {
   registry.register(first);
   registry.register(second);
 
-  assert.equal(registry.getArchitecture("consensus"), second);
+  assert.equal(registry.get("consensus"), second);
 });

@@ -27,6 +27,7 @@
     "src",
     "tests",
     "scripts/demo-experiment-engine.ts",
-    "scripts/demo-pr-import.ts"
+    "scripts/demo-pr-import.ts",
+    "scripts/demo-review-framework.ts"
   ]
 }

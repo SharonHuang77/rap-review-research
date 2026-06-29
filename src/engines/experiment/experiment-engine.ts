@@ -203,9 +203,7 @@ export class ExperimentEngine implements IExperimentEngine {
     }
 
     // May throw UnknownArchitectureError — handled as a (non-retryable) failure.
-    const architecture = this.deps.registry.getArchitecture(
-      experiment.architecture,
-    );
+    const architecture = this.deps.registry.get(experiment.architecture);
 
     return architecture.execute({
       experimentId: experiment.experimentId,

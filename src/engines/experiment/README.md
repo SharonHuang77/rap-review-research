@@ -96,8 +96,9 @@ interface IReviewArchitecture {
   readonly name: ReviewArchitecture;
   execute(input: ReviewExecutionInput): Promise<RawReviewResult>;
 }
-interface ArchitectureRegistry {
-  getArchitecture(name: ReviewArchitecture): IReviewArchitecture;
+interface ArchitectureRegistry {        // owned by RFC-03 (Review Architecture Framework)
+  register(architecture: IReviewArchitecture): void;
+  get(name: ReviewArchitecture): IReviewArchitecture;
 }
 
 // repositories

@@ -18,21 +18,24 @@ export interface ReviewExecutionInput {
 
 /**
  * The unvalidated output of a review architecture, together with the
- * execution-level metrics the Experiment Engine records.
+ * execution-level metrics the Experiment Engine records (RFC-03 shape).
  *
- * `rawOutput` is deliberately typed as `unknown`: the Experiment Engine must
- * not trust model output and never inspects its shape — that is the job of the
- * Validation Engine (a future RFC).
+ * `summary` and `findings` carry the architecture's self-reported review, while
+ * `rawOutput` keeps the original unstructured payload. All three are untrusted:
+ * the Experiment Engine never inspects them — turning them into a validated
+ * result is the job of the Validation Engine (a future RFC). `findings` is
+ * therefore typed as `unknown`.
  */
 export interface RawReviewResult {
   readonly architecture: ReviewArchitecture;
+  readonly summary: string;
   readonly rawOutput: unknown;
-  readonly rawOutputText?: string;
+  readonly findings: unknown;
 
   readonly inputTokens: number;
   readonly outputTokens: number;
-  readonly estimatedCostUsd: number;
   readonly latencyMs: number;
+  readonly estimatedCostUsd: number;
   readonly messageCount: number;
 }
 
