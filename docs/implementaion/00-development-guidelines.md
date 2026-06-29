@@ -579,3 +579,150 @@ Before writing code:
 7. Explain any architectural deviations before implementing them.
 
 The objective is to build a maintainable research platform, not merely produce working code.
+
+## Tooling Standards
+
+The project uses native TypeScript execution through Node.js type stripping.
+
+TypeScript files are executed directly by Node. The TypeScript compiler is used only for type checking and does not emit JavaScript.
+
+### Execution Model
+
+The project does **not** use:
+
+* Jest
+* Babel
+* Webpack
+* Vite
+* Rollup
+* a `dist/` build output
+* precompiled JavaScript for local execution
+
+Instead:
+
+```bash
+node scripts/demo-experiment-engine.ts
+node --test "tests/unit/**/*.test.ts"
+```
+
+Node loads `.ts` files directly and erases type annotations at runtime.
+
+### Type Checking
+
+Type checking is performed with:
+
+```bash
+tsc -p tsconfig.json
+```
+
+The TypeScript configuration uses:
+
+```json
+{
+  "noEmit": true,
+  "erasableSyntaxOnly": true
+}
+```
+
+`noEmit` ensures TypeScript produces no JavaScript output.
+
+`erasableSyntaxOnly` ensures the code remains compatible with Node's native TypeScript type stripping.
+
+This means the following TypeScript features should not be used:
+
+* `enum`
+* `namespace`
+* constructor parameter properties
+
+Use string-literal unions instead of enums.
+
+Preferred:
+
+```ts
+export type ExperimentStatus =
+  | "created"
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed";
+```
+
+Avoid:
+
+```ts
+enum ExperimentStatus {
+  Created,
+  Queued,
+  Running,
+  Completed,
+  Failed
+}
+```
+
+### Testing
+
+The project uses Node's built-in test runner:
+
+```bash
+node --test
+```
+
+The default test command is:
+
+```bash
+npm test
+```
+
+Watch mode:
+
+```bash
+npm run test:watch
+```
+
+### Standard Scripts
+
+```json
+{
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test \"tests/unit/**/*.test.ts\"",
+    "test:watch": "node --test --watch \"tests/unit/**/*.test.ts\"",
+    "demo": "node scripts/demo-experiment-engine.ts",
+    "check": "npm run typecheck && npm test"
+  }
+}
+```
+
+### Development Workflow
+
+Developers should run:
+
+```bash
+npm run check
+```
+
+before committing.
+
+To verify the Experiment Engine manually, run:
+
+```bash
+npm run demo
+```
+
+### Node Version
+
+The project requires:
+
+```text
+Node >= 22.18
+```
+
+Development currently uses Node 25.
+
+### Rationale
+
+This tooling strategy keeps the project lightweight and reproducible.
+
+It avoids unnecessary bundlers, transpilers, and test frameworks while still enforcing strict type safety.
+
+If future deployment requirements require emitted JavaScript, a separate build target may be introduced later. Until then, the project should remain native-execution-first.
