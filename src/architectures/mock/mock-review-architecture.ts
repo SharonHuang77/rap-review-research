@@ -66,8 +66,9 @@ export class MockReviewArchitecture implements IReviewArchitecture {
 
     return {
       architecture: this.name,
+      summary: output.summary,
       rawOutput: output,
-      rawOutputText: JSON.stringify(output),
+      findings: output.findings,
       inputTokens: metrics.inputTokens ?? 1000,
       outputTokens: metrics.outputTokens ?? 250,
       estimatedCostUsd: metrics.estimatedCostUsd ?? 0.01,

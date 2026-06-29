@@ -197,6 +197,7 @@ test("a failed experiment can be retried to completion", async () => {
       }
       return {
         architecture: "agentless",
+        summary: "ok",
         rawOutput: {
           architecture: "agentless",
           summary: "ok",
@@ -204,6 +205,7 @@ test("a failed experiment can be retried to completion", async () => {
           findings: [],
           messageCount: 1,
         },
+        findings: [],
         inputTokens: 10,
         outputTokens: 5,
         estimatedCostUsd: 0.001,
