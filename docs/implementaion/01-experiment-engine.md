@@ -279,7 +279,8 @@ export interface IReviewArchitecture {
 }
 
 export interface ArchitectureRegistry {
-  getArchitecture(name: ReviewArchitecture): IReviewArchitecture;
+  register(architecture: IReviewArchitecture): void;
+  get(name: ReviewArchitecture): IReviewArchitecture;
 }
 ```
 
@@ -318,13 +319,14 @@ Architectures return raw results before validation.
 ```ts
 export interface RawReviewResult {
   architecture: ReviewArchitecture;
+  summary: string;
   rawOutput: unknown;
-  rawOutputText?: string;
+  findings: unknown;
 
   inputTokens: number;
   outputTokens: number;
-  estimatedCostUsd: number;
   latencyMs: number;
+  estimatedCostUsd: number;
   messageCount: number;
 }
 ```
