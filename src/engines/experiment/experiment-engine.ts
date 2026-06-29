@@ -195,7 +195,7 @@ export class ExperimentEngine implements IExperimentEngine {
   private async runArchitecture(
     experiment: Experiment,
   ): Promise<RawReviewResult> {
-    const snapshot = await this.deps.snapshots.findById(experiment.snapshotId);
+    const snapshot = await this.deps.snapshots.getById(experiment.snapshotId);
     if (!snapshot) {
       throw new SnapshotNotFoundError(
         `PR Snapshot "${experiment.snapshotId}" does not exist.`,

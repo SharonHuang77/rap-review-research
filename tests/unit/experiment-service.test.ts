@@ -17,7 +17,7 @@ test("ExperimentService drives the full lifecycle via a mock architecture", asyn
     clock: new FixedClock(),
     idGenerator: new DefaultIdGenerator(),
   });
-  await ctx.snapshots.save(buildSnapshot());
+  await ctx.snapshots.create(buildSnapshot());
 
   const result = await ctx.service.runExperiment(buildRunInput());
   assert.equal(result.status, "completed");
@@ -31,7 +31,7 @@ test("ExperimentService default wiring needs an architecture registered", async 
   // The default registry is empty: running without registering an architecture
   // results in a failed experiment rather than a thrown error.
   const ctx = createExperimentService({ clock: new FixedClock() });
-  await ctx.snapshots.save(buildSnapshot());
+  await ctx.snapshots.create(buildSnapshot());
 
   const result = await ctx.service.runExperiment(buildRunInput());
   assert.equal(result.status, "failed");

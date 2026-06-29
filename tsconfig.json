@@ -23,5 +23,10 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "tests", "scripts/demo-experiment-engine.ts"]
+  "include": [
+    "src",
+    "tests",
+    "scripts/demo-experiment-engine.ts",
+    "scripts/demo-pr-import.ts"
+  ]
 }

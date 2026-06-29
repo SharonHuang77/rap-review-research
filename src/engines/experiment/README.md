@@ -109,9 +109,10 @@ interface ExperimentRepository {
   markFailed(experimentId: string, errorMessage: string): Promise<void>;
   markCompleted(experimentId: string, summary: ExperimentCompletionSummary): Promise<void>;
 }
-interface SnapshotRepository {
-  findById(snapshotId: string): Promise<PRSnapshot | null>;
-  save(snapshot: PRSnapshot): Promise<void>;
+interface SnapshotRepository {            // owned by RFC-02 (PR Import Engine)
+  findByIdempotencyKey(key: string): Promise<PRSnapshot | null>;
+  create(snapshot: PRSnapshot): Promise<void>;
+  getById(snapshotId: string): Promise<PRSnapshot | null>;
 }
 
 // engines/experiment/ports — owned by future RFCs, mocked here
