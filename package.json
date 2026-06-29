@@ -14,6 +14,7 @@
     "demo": "node scripts/demo-experiment-engine.ts",
     "demo:import": "node scripts/demo-pr-import.ts",
     "demo:framework": "node scripts/demo-review-framework.ts",
+    "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "check": "npm run typecheck && npm run test"
   },
   "devDependencies": {
