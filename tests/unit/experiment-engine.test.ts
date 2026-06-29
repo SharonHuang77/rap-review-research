@@ -32,7 +32,7 @@ async function harness(architecture?: IReviewArchitecture) {
     clock: new FixedClock("2026-01-01T00:00:00.000Z", 1000),
     idGenerator: new DefaultIdGenerator(),
   });
-  await ctx.snapshots.save(buildSnapshot());
+  await ctx.snapshots.create(buildSnapshot());
   return { ...ctx, experiments };
 }
 

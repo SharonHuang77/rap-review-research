@@ -52,3 +52,13 @@ export class SnapshotNotFoundError extends DomainError {
 export class ExperimentNotFoundError extends DomainError {
   public readonly code = "EXPERIMENT_NOT_FOUND";
 }
+
+/** A unified diff could not be parsed into changed files. Not retryable. */
+export class DiffParseError extends DomainError {
+  public readonly code = "DIFF_PARSE_ERROR";
+}
+
+/** An import request was rejected (missing/invalid metadata or diff). */
+export class ImportError extends DomainError {
+  public readonly code = "IMPORT_ERROR";
+}

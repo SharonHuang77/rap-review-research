@@ -94,10 +94,10 @@ test("operations on a missing experiment throw StorageError", async () => {
 
 test("snapshot repository stores and resolves snapshots", async () => {
   const repo = new InMemorySnapshotRepository();
-  assert.equal(await repo.findById("snap_001"), null);
+  assert.equal(await repo.getById("snap_001"), null);
 
-  await repo.save(buildSnapshot());
-  const found = await repo.findById("snap_001");
+  await repo.create(buildSnapshot());
+  const found = await repo.getById("snap_001");
   assert.equal(found?.snapshotId, "snap_001");
-  assert.equal(found?.prNumber, 1);
+  assert.equal(found?.source, "manual");
 });

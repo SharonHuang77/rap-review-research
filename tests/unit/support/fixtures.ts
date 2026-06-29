@@ -7,15 +7,24 @@ export function buildSnapshot(
 ): PRSnapshot {
   return {
     snapshotId: "snap_001",
-    repository: "org/repo",
-    prNumber: 1,
-    commitHash: "abc123",
+    source: "manual",
     title: "Add feature",
     description: "A test pull request.",
-    rawDiff: "diff --git a/x b/x",
+    rawDiffS3Key: "raw-diff/snap_001.diff",
     changedFiles: [
-      { path: "src/x.ts", changedLines: [{ start: 1, end: 10 }] },
+      {
+        path: "src/x.ts",
+        changeType: "modified",
+        additions: 8,
+        deletions: 2,
+        changedLineRanges: [
+          { startLine: 1, endLine: 8, changeType: "added" },
+        ],
+      },
     ],
+    totalChangedLines: 10,
+    category: "backend",
+    complexity: "small",
     importedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };

@@ -1,16 +1,22 @@
 import type { PRSnapshot } from "../models/snapshot.ts";
 
 /**
- * Read port for immutable {@link PRSnapshot}s.
+ * Persistence port for immutable {@link PRSnapshot}s (RFC-02).
  *
- * Snapshots are produced by the PR Import Engine (a future RFC); the Experiment
- * Engine only reads them. `save` exists so snapshots can be seeded in tests and
- * local development until the import engine lands.
+ * Business logic depends on this interface, never on a concrete database.
+ * Snapshots are written once by the PR Import Engine and only ever read
+ * afterwards (the Experiment Engine reads them via {@link getById}).
  */
 export interface SnapshotRepository {
-  /** Look up a snapshot by id, or `null` if absent. */
-  findById(snapshotId: string): Promise<PRSnapshot | null>;
+  /**
+   * Find an existing snapshot by its deterministic idempotency key, or `null`.
+   * Used to avoid importing the same PR/commit twice.
+   */
+  findByIdempotencyKey(key: string): Promise<PRSnapshot | null>;
 
-  /** Persist a snapshot (seeding hook; snapshots are immutable once stored). */
-  save(snapshot: PRSnapshot): Promise<void>;
+  /** Persist a newly created snapshot. */
+  create(snapshot: PRSnapshot): Promise<void>;
+
+  /** Look up a snapshot by id, or `null` if absent. */
+  getById(snapshotId: string): Promise<PRSnapshot | null>;
 }

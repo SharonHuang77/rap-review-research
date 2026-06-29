@@ -29,18 +29,31 @@ const ctx = createExperimentService({
 
 const snapshot: PRSnapshot = {
   snapshotId: "snap_042",
-  repository: "org/rap-portal",
+  source: "manual",
+  repositoryOwner: "org",
+  repositoryName: "rap-portal",
   prNumber: 42,
   commitHash: "deadbeef",
   title: "Add login rate limiting",
   description: "Throttles repeated failed login attempts.",
-  rawDiff: "diff --git a/auth.ts b/auth.ts",
+  rawDiffS3Key: "raw-diff/snap_042.diff",
   changedFiles: [
-    { path: "src/auth.ts", changedLines: [{ start: 10, end: 28 }] },
+    {
+      path: "src/auth.ts",
+      changeType: "modified",
+      additions: 18,
+      deletions: 1,
+      changedLineRanges: [
+        { startLine: 10, endLine: 28, changeType: "added" },
+      ],
+    },
   ],
+  totalChangedLines: 19,
+  category: "backend",
+  complexity: "small",
   importedAt: "2026-06-28T00:00:00.000Z",
 };
-await ctx.snapshots.save(snapshot);
+await ctx.snapshots.create(snapshot);
 
 const input: RunExperimentInput = {
   snapshotId: "snap_042",

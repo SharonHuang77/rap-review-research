@@ -60,3 +60,53 @@ export class DefaultIdGenerator implements IdGenerator {
     return `${idempotencyKey}#rerun-${this.rerunCounter}`;
   }
 }
+
+/**
+ * Fields that deterministically identify a PR Snapshot (RFC-02).
+ *
+ * A snapshot is uniquely identified by its origin repository, PR number, and
+ * commit hash. A new commit on the same PR is a different snapshot.
+ */
+export interface SnapshotIdempotencyFields {
+  readonly repositoryOwner?: string;
+  readonly repositoryName?: string;
+  readonly prNumber?: number;
+  readonly commitHash?: string;
+}
+
+/**
+ * Build the deterministic idempotency key for a snapshot, or `null` when the
+ * origin is not fully known (e.g. a manual upload with no repo/PR/commit). A
+ * `null` key means the snapshot participates in no deduplication.
+ *
+ * Example: `org#rap-portal#42#commit-a`
+ */
+export function buildSnapshotIdempotencyKey(
+  fields: SnapshotIdempotencyFields,
+): string | null {
+  const { repositoryOwner, repositoryName, prNumber, commitHash } = fields;
+  if (!repositoryOwner || !repositoryName || prNumber == null || !commitHash) {
+    return null;
+  }
+  return [repositoryOwner, repositoryName, prNumber, commitHash].join("#");
+}
+
+/**
+ * Allocates snapshot identifiers.
+ */
+export interface SnapshotIdGenerator {
+  nextSnapshotId(): string;
+}
+
+/**
+ * Default snapshot-id allocator: deterministic given call order
+ * (`snap_001`, `snap_002`, …). Sufficient for in-memory, single-process use.
+ */
+export class DefaultSnapshotIdGenerator implements SnapshotIdGenerator {
+  private counter = 0;
+
+  public nextSnapshotId(): string {
+    this.counter += 1;
+    return `snap_${String(this.counter).padStart(3, "0")}`;
+  }
+}
