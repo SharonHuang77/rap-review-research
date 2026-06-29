@@ -273,7 +273,7 @@ Instead, it uses an architecture registry.
 
 ```ts
 export interface IReviewArchitecture {
-  name: ReviewArchitecture;
+  readonly name: ReviewArchitecture;
 
   execute(input: ReviewExecutionInput): Promise<RawReviewResult>;
 }
