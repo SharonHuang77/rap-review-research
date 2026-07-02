@@ -33,6 +33,7 @@
     "scripts/demo-hierarchical.ts",
     "scripts/demo-consensus.ts",
     "scripts/demo-evaluation.ts",
+    "scripts/demo-export.ts",
     "scripts/smoke-bedrock.ts"
   ]
 }
