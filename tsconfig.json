@@ -36,6 +36,11 @@
     "scripts/demo-evaluation.ts",
     "scripts/demo-export.ts",
     "scripts/demo-workbench.ts",
+    "scripts/benchmark-shared.ts",
+    "scripts/benchmark-import.ts",
+    "scripts/benchmark-run.ts",
+    "scripts/benchmark-evaluate.ts",
+    "scripts/benchmark-export.ts",
     "scripts/smoke-bedrock.ts"
   ]
 }

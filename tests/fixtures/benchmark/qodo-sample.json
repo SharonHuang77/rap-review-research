@@ -1,0 +1,40 @@
+{
+  "dataset_id": "qodo-pr-review-bench-sample",
+  "name": "Qodo PR-Review-Bench (sample)",
+  "rows": [
+    {
+      "id": "qodo-1",
+      "pr_title": "Guard getUsers query",
+      "diff": "diff --git a/src/api/users.ts b/src/api/users.ts\nindex 1111111..2222222 100644\n--- a/src/api/users.ts\n+++ b/src/api/users.ts\n@@ -8,6 +8,9 @@ export function getUsers(q) {\n   const users = db.query(q);\n+  if (!q) {\n+    return [];\n+  }\n   return users.filter(Boolean);\n }\n",
+      "issues": [
+        {
+          "issue_id": "qodo-1-issue-1",
+          "file_path": "src/api/users.ts",
+          "line_start": 8,
+          "line_end": 14,
+          "category": "correctness",
+          "severity": "high",
+          "title": "Unvalidated query parameter",
+          "description": "getUsers passes q to db.query without validation."
+        }
+      ]
+    },
+    {
+      "id": "qodo-2",
+      "pr_title": "Login lookup",
+      "diff": "diff --git a/src/auth/login.ts b/src/auth/login.ts\nindex aaaaaaa..bbbbbbb 100644\n--- a/src/auth/login.ts\n+++ b/src/auth/login.ts\n@@ -3,5 +3,7 @@ export function login(user, pass) {\n   const row = db.query(\"SELECT * FROM users WHERE name='\" + user + \"'\");\n+  if (!row) {\n+    throw new Error(\"no user\");\n+  }\n   return row;\n }\n",
+      "issues": [
+        {
+          "issue_id": "qodo-2-issue-1",
+          "file_path": "src/auth/login.ts",
+          "line_start": 3,
+          "line_end": 6,
+          "category": "security",
+          "severity": "critical",
+          "title": "SQL injection via string concatenation",
+          "description": "User input is concatenated directly into the SQL query."
+        }
+      ]
+    }
+  ]
+}
