@@ -16,11 +16,14 @@ See `docs/` for the full architecture and implementation specifications.
 | RFC-04 | Agentless Review Architecture | `src/architectures/agentless/` | [module README](src/architectures/agentless/README.md) |
 | RFC-05 | Validation & Result Processing | `src/validation/` | [module README](src/validation/README.md) |
 | RFC-06 | Storage Engine | `src/storage/` | [module README](src/storage/README.md) |
+| RFC-07 | Research Evaluation Engine | `src/evaluation/` | [module README](src/evaluation/README.md) |
 
 The Experiment Engine is the core runtime: it creates experiments, manages their
 lifecycle, enforces idempotency, resolves and executes a review architecture,
-validates the result, and stores the artifacts. Evaluation, the dashboard, and
-the Hierarchical/Consensus architectures are future RFCs; the evaluation step is
+validates the result, and stores the artifacts. The Research Evaluation Engine
+(RFC-07) computes metrics from stored results. The dashboard/CSV export and the
+Hierarchical/Consensus architectures are future RFCs; the inline evaluation step
+in the experiment lifecycle is
 still an injected no-op placeholder.
 
 ## Quick start

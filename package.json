@@ -15,6 +15,7 @@
     "demo:import": "node scripts/demo-pr-import.ts",
     "demo:framework": "node scripts/demo-review-framework.ts",
     "demo:agentless": "node scripts/demo-agentless.ts",
+    "demo:evaluate": "node scripts/demo-evaluation.ts",
     "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "check": "npm run typecheck && npm run test"
   },
