@@ -28,6 +28,7 @@ export interface MockReviewArchitectureOptions {
       | "estimatedCostUsd"
       | "latencyMs"
       | "messageCount"
+      | "llmCalls"
     >
   >;
   /** Optional hook invoked with the execution input, for assertions. */
@@ -74,6 +75,7 @@ export class MockReviewArchitecture implements IReviewArchitecture {
       estimatedCostUsd: metrics.estimatedCostUsd ?? 0.01,
       latencyMs: metrics.latencyMs ?? 1200,
       messageCount: metrics.messageCount ?? 1,
+      llmCalls: metrics.llmCalls ?? 1,
     };
   }
 

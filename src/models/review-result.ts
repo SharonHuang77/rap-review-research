@@ -36,7 +36,10 @@ export interface RawReviewResult {
   readonly outputTokens: number;
   readonly latencyMs: number;
   readonly estimatedCostUsd: number;
+  /** Number of inter-agent messages (0/1 for single-agent architectures). */
   readonly messageCount: number;
+  /** Number of LLM provider calls made during execution (RFC-04). */
+  readonly llmCalls: number;
 }
 
 /**

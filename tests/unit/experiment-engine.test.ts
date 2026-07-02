@@ -211,6 +211,7 @@ test("a failed experiment can be retried to completion", async () => {
         estimatedCostUsd: 0.001,
         latencyMs: 100,
         messageCount: 1,
+        llmCalls: 1,
       };
     },
   };
