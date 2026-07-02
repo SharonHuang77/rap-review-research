@@ -30,6 +30,7 @@
     "scripts/demo-pr-import.ts",
     "scripts/demo-review-framework.ts",
     "scripts/demo-agentless.ts",
+    "scripts/demo-hierarchical.ts",
     "scripts/demo-evaluation.ts",
     "scripts/smoke-bedrock.ts"
   ]
