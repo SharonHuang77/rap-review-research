@@ -133,6 +133,7 @@ export interface RawReviewResult {
   outputTokens: number;
   latencyMs: number;
   estimatedCostUsd: number;
+  messageCount: number;
   llmCalls: number;
 }
 ```
@@ -142,6 +143,9 @@ For Agentless:
 ```text
 llmCalls = 1
 ```
+
+`messageCount` (inter-agent messages) is part of the shared `RawReviewResult`
+and is also recorded; for single-agent Agentless it is small (1).
 
 ---
 
