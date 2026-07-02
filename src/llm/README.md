@@ -147,6 +147,71 @@ for the native-TypeScript / `node:test` workflow.
 
 ---
 
+## Live Bedrock smoke test
+
+`npm run smoke:bedrock` makes **one** tiny real Converse call through
+`BedrockProvider` to confirm local AWS setup. It uses the AWS SDK default
+credential provider chain (no keys in code) and is **not** part of `npm test` /
+`npm run check`.
+
+One-time / per-session setup:
+
+```bash
+# 1. Configure credentials (pick one)
+aws configure sso           # SSO (recommended); then: aws sso login --profile <p>
+aws configure               # or static IAM credentials
+
+export AWS_PROFILE=<profile>       # if using SSO/named profile
+export AWS_REGION=ca-central-1     # or set LLM_REGION
+
+# 2. Verify identity
+aws sts get-caller-identity
+
+# 3. Run the smoke test
+npm run smoke:bedrock
+```
+
+Requirements: Bedrock **model access** enabled for the target Claude Sonnet
+model **in the same region** (Bedrock console → Model access), and the IAM
+principal must allow `bedrock:InvokeModel`.
+
+### Troubleshooting
+
+| Symptom (script output) | Likely cause | Fix |
+| ----------------------- | ------------ | --- |
+| `ProviderAuthenticationError` (AccessDenied / UnrecognizedClient / ExpiredToken) | No/expired credentials, or missing `bedrock:InvokeModel` | `aws sso login` (or `aws configure`); confirm `aws sts get-caller-identity`; add `bedrock:InvokeModel` to the principal |
+| `ProviderResponseError` mentioning **ValidationException** / "invocation ... with on-demand throughput isn't supported" | The model requires a **cross-region inference profile**, not a bare model id | Use the inference-profile id (see below) via `LLM_DEFAULT_MODEL` |
+| `ProviderResponseError` mentioning model access / "You don't have access to the model" | Model access not enabled in this region | Enable it in Bedrock → Model access, in the **same region** as `LLM_REGION`/`AWS_REGION` |
+| `ProviderResponseError` "model identifier is invalid" | Wrong/typo'd model id, or model not offered in this region | List valid ids (below) and set `LLM_DEFAULT_MODEL` |
+| `ProviderRateLimitError` (ThrottlingException) | Throttled | Wait and retry |
+| `ProviderTimeoutError` | Network/VPN | Check connectivity and retry |
+
+**Cross-region inference profiles.** Newer Claude models in some regions are
+only invokable through an inference profile (its id is region-prefixed, e.g.
+`apac.` / `us.` / `eu.` …), not the bare `anthropic.claude-…` id. Passing the
+bare id then yields a `ValidationException` (surfaced here as
+`ProviderResponseError`). List what your region/account can invoke and pass it
+explicitly:
+
+```bash
+# On-demand base models
+aws bedrock list-foundation-models --region "$AWS_REGION" \
+  --by-provider anthropic --query "modelSummaries[].modelId" --output table
+
+# Inference profiles (use the inferenceProfileId if a base id is rejected)
+aws bedrock list-inference-profiles --region "$AWS_REGION" \
+  --query "inferenceProfileSummaries[].inferenceProfileId" --output table
+
+# Then run against the approved id/profile:
+LLM_DEFAULT_MODEL=<model-id-or-inference-profile-id> npm run smoke:bedrock
+```
+
+`list-foundation-models` / `list-inference-profiles` require the
+`bedrock:ListFoundationModels` / `bedrock:ListInferenceProfiles` permissions
+(control-plane), separate from `bedrock:InvokeModel` (runtime).
+
+---
+
 ## Design decisions
 
 1. **Provider behind an interface.** Architectures depend only on
