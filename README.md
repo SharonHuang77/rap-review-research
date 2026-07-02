@@ -19,14 +19,15 @@ See `docs/` for the full architecture and implementation specifications.
 | RFC-07 | Research Evaluation Engine | `src/evaluation/` | [module README](src/evaluation/README.md) |
 | RFC-08 | Hierarchical Authority Review | `src/architectures/hierarchical/` | [module README](src/architectures/hierarchical/README.md) |
 | RFC-09 | Decentralized Consensus Review | `src/architectures/consensus/` | [module README](src/architectures/consensus/README.md) |
+| RFC-10 | Export Service | `src/export/` | [module README](src/export/README.md) |
 
 The Experiment Engine is the core runtime: it creates experiments, manages their
 lifecycle, enforces idempotency, resolves and executes a review architecture,
 validates the result, and stores the artifacts. The Research Evaluation Engine
-(RFC-07) computes metrics from stored results. The dashboard/CSV export and the
-Hierarchical/Consensus architectures are future RFCs; the inline evaluation step
-in the experiment lifecycle is
-still an injected no-op placeholder.
+(RFC-07) computes metrics from stored results, and the Export Service (RFC-10)
+serializes the resulting comparisons into CSV/JSON research-dataset strings. The
+research dashboard is a future RFC; the inline evaluation step in the experiment
+lifecycle is still an injected no-op placeholder.
 
 ## Quick start
 
