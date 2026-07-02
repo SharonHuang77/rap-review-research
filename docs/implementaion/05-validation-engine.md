@@ -301,7 +301,7 @@ This becomes the canonical finding model.
 ```ts
 export interface ValidatedReviewResult {
 
-    architecture: string;
+    architecture: ReviewArchitecture;
 
     summary: string;
 

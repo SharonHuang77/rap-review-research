@@ -328,6 +328,7 @@ export interface RawReviewResult {
   latencyMs: number;
   estimatedCostUsd: number;
   messageCount: number;
+  llmCalls: number;
 }
 ```
 
@@ -339,14 +340,21 @@ The Experiment Engine should not trust raw model output.
 
 ## Validated Review Result
 
-After validation, the result becomes structured and safe to store.
+After validation, the result becomes structured and safe to store. This is the
+canonical shape produced by the Validation Engine (RFC-05); see
+`05-validation-engine.md` for the authoritative definition and `ValidationMetadata`.
 
 ```ts
 export interface ValidatedReviewResult {
   architecture: ReviewArchitecture;
   summary: string;
-  riskLevel: "low" | "medium" | "high" | "critical";
   findings: ReviewFinding[];
+  validation: ValidationMetadata;
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  llmCalls: number;
   messageCount: number;
 }
 ```

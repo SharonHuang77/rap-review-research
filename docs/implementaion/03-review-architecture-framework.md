@@ -119,8 +119,17 @@ export interface RawReviewResult {
     estimatedCostUsd: number;
 
     messageCount: number;
+
+    llmCalls: number;
 }
 ```
+
+`llmCalls` and `messageCount` measure different things and are both recorded:
+
+* `llmCalls` — the number of LLM provider calls made during execution (1 for
+  Agentless).
+* `messageCount` — the number of inter-agent messages (meaningful for the
+  Hierarchical and Consensus topologies; small for single-agent Agentless).
 
 Validation occurs after architecture execution.
 
