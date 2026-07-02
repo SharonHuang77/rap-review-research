@@ -12,10 +12,8 @@ import { ExperimentService } from "./experiment-service.ts";
 import { InMemoryArchitectureRegistry } from "../../architectures/in-memory-architecture-registry.ts";
 import { InMemoryExperimentRepository } from "../../repositories/in-memory/in-memory-experiment-repository.ts";
 import { InMemorySnapshotRepository } from "../../repositories/in-memory/in-memory-snapshot-repository.ts";
-import {
-  PassthroughOutputValidator,
-  NoopEvaluationTrigger,
-} from "../../engines/experiment/placeholders.ts";
+import { NoopEvaluationTrigger } from "../../engines/experiment/placeholders.ts";
+import { ValidationEngine } from "../../validation/index.ts";
 import { SystemClock } from "../../shared/clock.ts";
 import { DefaultIdGenerator } from "../../shared/id.ts";
 import { NoopLogger } from "../../shared/logger.ts";
@@ -61,7 +59,7 @@ export function createExperimentService(
     overrides.experiments ?? new InMemoryExperimentRepository();
   const snapshots = overrides.snapshots ?? new InMemorySnapshotRepository();
   const registry = overrides.registry ?? new InMemoryArchitectureRegistry();
-  const validator = overrides.validator ?? new PassthroughOutputValidator();
+  const validator = overrides.validator ?? new ValidationEngine();
   const evaluator = overrides.evaluator ?? new NoopEvaluationTrigger();
   const clock = overrides.clock ?? new SystemClock();
   const idGenerator = overrides.idGenerator ?? new DefaultIdGenerator();

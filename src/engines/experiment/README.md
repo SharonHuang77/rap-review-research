@@ -63,7 +63,7 @@ src/
 │
 ├── engines/experiment/             # The Experiment Engine
 │   ├── ports.ts                    #   IOutputValidator, IEvaluationTrigger (future-RFC ports)
-│   ├── placeholders.ts             #   Passthrough/no-op stand-ins for those ports
+│   ├── placeholders.ts             #   NoopEvaluationTrigger (evaluation stand-in)
 │   ├── experiment-engine.ts        #   ExperimentEngine + IExperimentEngine
 │   └── index.ts
 │
@@ -118,7 +118,7 @@ interface SnapshotRepository {            // owned by RFC-02 (PR Import Engine)
 
 // engines/experiment/ports — owned by future RFCs, mocked here
 interface IOutputValidator {
-  validate(raw: RawReviewResult): Promise<ValidatedReviewResult>;
+  validate(raw: RawReviewResult, context?: OutputValidationContext): Promise<ValidatedReviewResult>;
 }
 interface IEvaluationTrigger {
   evaluate(experimentId: string, result: ValidatedReviewResult): Promise<void>;
@@ -227,13 +227,12 @@ developed on Node 25). No bundler, Jest/Vitest, or ts-node.
    architecture-specific logic, so adding a fourth topology requires zero engine
    changes (Principle 11).
 
-2. **Validation & Evaluation are ports, not implementations.** Those subsystems
-   are future RFCs. To preserve the architecture's *validate-before-store* and
-   *trigger-evaluation* flow without implementing them, the engine depends on
-   `IOutputValidator` / `IEvaluationTrigger` and RFC-01 wires clearly-labelled
-   placeholders (`PassthroughOutputValidator`, `NoopEvaluationTrigger`). They do
-   **no** schema validation or metric computation and are designed to be
-   replaced wholesale.
+2. **Validation & Evaluation are ports.** The engine depends on
+   `IOutputValidator` / `IEvaluationTrigger`, never on concrete implementations.
+   As of **RFC-05** the validator is the real `ValidationEngine` (`src/validation`,
+   wired by the composition root); evaluation is still a `NoopEvaluationTrigger`
+   placeholder until the Evaluation Engine RFC. This preserves the
+   *validate-before-evaluate* flow while keeping the engine decoupled.
 
 3. **Full state machine, not just the DoD subset.** "Do not change the
    architecture" takes priority, so the engine implements the complete

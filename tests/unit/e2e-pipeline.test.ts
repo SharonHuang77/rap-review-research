@@ -12,7 +12,7 @@ import { PromptBuilder } from "../../src/llm/prompts/prompt-builder.ts";
 import { PromptLoader } from "../../src/llm/prompts/prompt-loader.ts";
 import { ContextBuilder } from "../../src/llm/prompts/context-builder.ts";
 import { MockProvider } from "../../src/llm/provider/mock-provider.ts";
-import { PassthroughOutputValidator } from "../../src/engines/experiment/placeholders.ts";
+import { ValidationEngine } from "../../src/validation/index.ts";
 import { FixedClock } from "../../src/shared/clock.ts";
 import {
   DefaultIdGenerator,
@@ -32,7 +32,7 @@ import { sampleDiff } from "./support/diffs.ts";
  */
 class CapturingValidator implements IOutputValidator {
   public captured: RawReviewResult | null = null;
-  private readonly inner = new PassthroughOutputValidator();
+  private readonly inner = new ValidationEngine();
 
   public async validate(raw: RawReviewResult): Promise<ValidatedReviewResult> {
     this.captured = raw;

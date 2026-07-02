@@ -4,19 +4,31 @@ import type {
 } from "../../models/review-result.ts";
 
 /**
+ * Optional context the engine supplies to the validator (experiment identity,
+ * prompt/schema versions) so it can be recorded in the validation metadata.
+ */
+export interface OutputValidationContext {
+  readonly experimentId?: string;
+  readonly promptVersion?: string;
+  readonly schemaVersion?: string;
+}
+
+/**
  * Validation collaborator port.
  *
  * The Experiment Engine never validates model output itself — it hands the raw
- * architecture result to this port and receives a structured, schema-safe
- * result. The concrete implementation is owned by the **Validation Engine**
- * (a future RFC); RFC-01 only depends on the interface and wires a placeholder.
+ * architecture result to this port and receives a structured, schema-valid
+ * result. The concrete implementation is the **Validation Engine** (RFC-05).
  */
 export interface IOutputValidator {
   /**
    * Validate (and repair, if necessary) a raw review result.
    * @throws ValidationError when the output cannot be made schema-valid.
    */
-  validate(raw: RawReviewResult): Promise<ValidatedReviewResult>;
+  validate(
+    raw: RawReviewResult,
+    context?: OutputValidationContext,
+  ): Promise<ValidatedReviewResult>;
 }
 
 /**

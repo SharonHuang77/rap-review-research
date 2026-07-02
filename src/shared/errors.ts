@@ -23,9 +23,13 @@ export class WorkflowError extends DomainError {
   public readonly code = "WORKFLOW_ERROR";
 }
 
-/** Model output failed schema validation. */
+/**
+ * Model output failed validation. Serves as the base for the Validation
+ * Engine's error hierarchy (RFC-05), so `code` is typed as `string` to let
+ * subclasses supply their own code.
+ */
 export class ValidationError extends DomainError {
-  public readonly code = "VALIDATION_ERROR";
+  public readonly code: string = "VALIDATION_ERROR";
 }
 
 /** A persistence operation failed. */
