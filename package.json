@@ -14,10 +14,14 @@
     "demo": "node scripts/demo-experiment-engine.ts",
     "demo:import": "node scripts/demo-pr-import.ts",
     "demo:framework": "node scripts/demo-review-framework.ts",
+    "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "check": "npm run typecheck && npm run test"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1076.0"
   }
 }
