@@ -9,3 +9,6 @@ export type {
 export { InMemoryArchitectureRegistry } from "./in-memory-architecture-registry.ts";
 export { MockReviewArchitecture } from "./mock/mock-review-architecture.ts";
 export type { MockReviewArchitectureOptions } from "./mock/mock-review-architecture.ts";
+
+export { AgentlessArchitecture } from "./agentless/index.ts";
+export type { AgentlessArchitectureDependencies } from "./agentless/index.ts";

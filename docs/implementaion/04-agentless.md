@@ -1,457 +1,370 @@
 # 04 — Agentless Review Architecture
 
 **Module:** Agentless Review Architecture
-
 **Status:** Ready for Implementation
-
-**Owner:** Research Platform Team
-
-**Dependencies:**
-
-* Experiment Engine
-* Review Architecture Framework
-* LLM Provider
-* Prompt Manager
+**Dependencies:** RFC-01 Experiment Engine, RFC-03 Review Architecture Framework, RFC-03.5 LLM Architecture
 
 ---
 
-# 1. Purpose
+## 1. Purpose
 
-The Agentless Review Architecture is the baseline implementation for the AI Code Review Experiment Platform.
+The Agentless Review Architecture is the first real review architecture in the AI Code Review Experiment Platform.
 
-It performs an automated review of a Pull Request Snapshot using **a single Large Language Model invocation** without collaboration, planning, or communication between multiple agents.
-
-Its purpose is to establish the experimental baseline against which the Hierarchical and Consensus architectures will be evaluated.
-
-The implementation should prioritize simplicity, determinism, and reproducibility over sophistication.
+It reviews one immutable PR Snapshot using a single LLM provider call. It does not use multiple agents, manager coordination, discussion rounds, or consensus. This makes it the baseline against which Hierarchical Authority and Decentralized Peer Consensus will be compared.
 
 ---
 
-# 2. Research Role
+## 2. Research Role
 
-This module represents the **control group** in the experiment.
+Agentless is the control condition.
 
-It answers the following research question:
+It answers:
 
-> How well can a single LLM review a pull request without any multi-agent coordination?
+> How well can a single LLM review a pull request without multi-agent communication?
 
-Its output will later be compared against:
-
-* Hierarchical Authority
-* Decentralized Peer Consensus
-
-using identical PR Snapshots and evaluation metrics.
+This architecture is expected to have the lowest latency, lowest token usage, and lowest coordination overhead.
 
 ---
 
-# 3. Responsibilities
+## 3. Responsibilities
 
-The Agentless Architecture is responsible for:
+Agentless is responsible for:
 
-* loading a PR Snapshot
-* constructing the review prompt
-* invoking the configured LLM
-* collecting execution metrics
-* returning a `RawReviewResult`
+* receiving `ReviewExecutionInput`
+* building an LLM review request from the PR Snapshot
+* using the shared Prompt Builder
+* calling `ILLMProvider` exactly once
+* mapping the provider response into `RawReviewResult`
+* reporting latency, tokens, estimated cost, and `llmCalls = 1`
 
-It must not:
+Agentless is not responsible for:
 
-* validate JSON
-* retry requests
-* store findings
-* compute evaluation metrics
-* access repositories directly
+* validating JSON
+* storing findings
+* computing precision, recall, or evidence scores
+* retrying provider failures
+* calling Bedrock directly
+* accessing repositories directly
 
 ---
 
-# 4. Architecture
+## 4. Architecture
 
 ```text
 Experiment Engine
-        │
-        ▼
-Agentless Architecture
-        │
-        ▼
-Prompt Manager
-        │
-        ▼
-LLM Provider
-        │
-        ▼
-OpenAI
-        │
-        ▼
-Raw JSON
-        │
-        ▼
+        ↓
+Architecture Registry
+        ↓
+AgentlessArchitecture
+        ↓
+PromptBuilder
+        ↓
+ILLMProvider
+        ↓
+MockProvider / BedrockProvider
+        ↓
 RawReviewResult
 ```
 
-The Agentless Architecture is intentionally stateless.
+Agentless must depend only on `ILLMProvider`, not on Bedrock-specific code.
 
 ---
 
-# 5. Execution Workflow
+## 5. Execution Workflow
 
 ```text
-Load PR Snapshot
-        │
-        ▼
-Load Prompt Template
-        │
-        ▼
-Construct Prompt
-        │
-        ▼
-Call LLM Provider
-        │
-        ▼
-Receive Raw JSON
-        │
-        ▼
-Measure Tokens
-        │
-        ▼
-Measure Cost
-        │
-        ▼
-Return RawReviewResult
+1. Experiment Engine calls AgentlessArchitecture.execute(input)
+2. Agentless receives ReviewExecutionInput
+3. Agentless builds prompt context from PR Snapshot
+4. PromptBuilder creates LLMReviewRequest
+5. Agentless calls ILLMProvider.review(request)
+6. Provider returns LLMReviewResponse
+7. Agentless maps response to RawReviewResult
+8. RawReviewResult returns to Experiment Engine
 ```
 
-Exactly **one** LLM request should occur.
+Exactly one provider call should occur.
 
 ---
 
-# 6. Sequence Diagram
+## 6. Public Interface
 
-```text
-Experiment Engine
-      │
-      │ execute()
-      ▼
-Agentless Architecture
-      │
-      │ loadPrompt()
-      ▼
-Prompt Manager
-      │
-      │ prompt
-      ▼
-Agentless Architecture
-      │
-      │ review()
-      ▼
-LLM Provider
-      │
-      │ API Request
-      ▼
-OpenAI
-      │
-      │ JSON
-      ▼
-LLM Provider
-      │
-      ▼
-Agentless Architecture
-      │
-      ▼
-RawReviewResult
-```
+```ts
+export class AgentlessArchitecture implements IReviewArchitecture {
+  readonly name = "agentless";
 
----
-
-# 7. Component Design
-
-The Agentless module consists of four classes.
-
-```text
-agentless/
-
-├── agentless-architecture.ts
-├── prompt-builder.ts
-├── prompt-loader.ts
-└── mapper.ts
-```
-
-## AgentlessArchitecture
-
-Responsible for:
-
-* orchestration
-* timing
-* metric collection
-
----
-
-## PromptLoader
-
-Responsible for:
-
-* locating prompt versions
-* loading markdown prompt templates
-
----
-
-## PromptBuilder
-
-Responsible for:
-
-* combining prompt template with PR Snapshot
-* formatting context
-
----
-
-## Mapper
-
-Responsible for:
-
-* converting provider responses into `RawReviewResult`
-
----
-
-# 8. Public Interface
-
-```typescript
-export class AgentlessArchitecture
-    implements IReviewArchitecture {
-
-    readonly name = "agentless";
-
-    async execute(
-        input: ReviewExecutionInput
-    ): Promise<RawReviewResult>;
-
+  async execute(input: ReviewExecutionInput): Promise<RawReviewResult> {
+    // implementation
+  }
 }
 ```
 
-The interface must match all future architectures.
-
 ---
 
-# 9. Prompt Construction
+## 7. Input Contract
 
-The final prompt should contain:
+Agentless receives:
 
-1. System Prompt
-2. Review Instructions
-3. Coding Standards
-4. PR Metadata
-5. Unified Diff
-6. Expected JSON Schema
-
-The prompt builder should assemble these sections dynamically.
-
-Prompt templates must not be hardcoded.
-
----
-
-# 10. Provider Interaction
-
-The Agentless Architecture communicates only with the `ILLMProvider`.
-
-```text
-Agentless
-        │
-        ▼
-ILLMProvider
-        │
-        ▼
-OpenAI
+```ts
+export interface ReviewExecutionInput {
+  experimentId: string;
+  snapshot: PRSnapshot;
+  modelVersion: string;
+  promptVersion: string;
+  workflowVersion: string;
+}
 ```
 
-Future providers (e.g., Amazon Bedrock, Anthropic) should be interchangeable.
+It must use the unified `PRSnapshot` model from RFC-02.
 
 ---
 
-# 11. Expected Output
+## 8. Output Contract
 
-The model must return JSON matching the project schema.
+Agentless returns `RawReviewResult`.
+
+```ts
+export interface RawReviewResult {
+  architecture: "agentless";
+  summary: string;
+  findings: unknown;
+  rawOutput: unknown;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+  estimatedCostUsd: number;
+  llmCalls: number;
+}
+```
+
+For Agentless:
+
+```text
+llmCalls = 1
+```
+
+---
+
+## 9. Prompt Requirements
+
+Agentless must use the shared prompt infrastructure from RFC-03.5.
+
+Prompt composition should include:
+
+* common review instructions
+* Agentless role instruction
+* PR metadata
+* changed files summary
+* unified diff
+* expected JSON output shape
+
+Prompt templates should live under the versioned prompt directory, for example:
+
+```text
+src/llm/prompts/templates/v1/common/
+src/llm/prompts/templates/v1/agentless/
+```
+
+Do not hardcode prompts inside `AgentlessArchitecture`.
+
+---
+
+## 10. Expected Model Output
+
+The provider response text should be JSON-shaped and compatible with the future Validation Engine.
 
 Example:
 
 ```json
 {
-  "summary": "...",
-  "riskLevel": "medium",
+  "summary": "The PR introduces one high-risk authorization issue.",
+  "riskLevel": "high",
   "findings": [
     {
-      "title": "...",
+      "title": "Missing authorization check",
       "severity": "high",
       "category": "security",
-      "file": "src/api/auth.ts",
-      "line": 52,
-      "description": "...",
-      "recommendation": "...",
+      "file": "src/api/reports.ts",
+      "line": 42,
+      "description": "The endpoint updates a report without verifying that the authenticated user belongs to the report's company.",
+      "recommendation": "Check report ownership before allowing the update.",
       "confidence": 0.91
     }
   ]
 }
 ```
 
-The Agentless module **must not validate** this structure.
+Agentless should not validate this output. Validation belongs to RFC-05.
 
 ---
 
-# 12. RawReviewResult
+## 11. Suggested Folder Structure
 
-```typescript
-export interface RawReviewResult {
-
-    architecture: "agentless";
-
-    summary: string;
-
-    rawOutput: unknown;
-
-    inputTokens: number;
-
-    outputTokens: number;
-
-    estimatedCostUsd: number;
-
-    latencyMs: number;
-
-    llmCalls: number;
-
-}
+```text
+src/architectures/agentless/
+  agentless-architecture.ts
+  agentless-result-mapper.ts
+  index.ts
+  README.md
 ```
 
-For Agentless:
-
-```
-llmCalls = 1
-```
+Prompt files should remain in `src/llm/prompts/`, not inside `src/architectures/agentless/`.
 
 ---
 
-# 13. Error Handling
+## 12. Error Handling
 
-The module should propagate errors to the Experiment Engine.
+Agentless should propagate typed provider errors from the LLM layer.
 
-Supported errors:
+Examples:
 
-* ProviderTimeoutError
-* ProviderAuthenticationError
-* ProviderRateLimitError
-* ProviderResponseError
+* `ProviderAuthenticationError`
+* `ProviderTimeoutError`
+* `ProviderRateLimitError`
+* `ProviderResponseError`
 
-No retry logic exists inside Agentless.
-
----
-
-# 14. Metrics
-
-The Agentless module records:
-
-* total latency
-* input tokens
-* output tokens
-* API cost
-* number of LLM calls
-
-These metrics are attached to `RawReviewResult`.
+Agentless should not retry internally. Retry policy belongs to the Experiment Engine.
 
 ---
 
-# 15. Logging
+## 13. Logging
 
-Every execution should log:
+Each execution should log:
 
-* experimentId
-* snapshotId
-* architecture
-* modelVersion
-* promptVersion
-* latency
-* token usage
+* `experimentId`
+* `snapshotId`
+* `architecture`
+* `modelVersion`
+* `promptVersion`
+* `latencyMs`
+* `inputTokens`
+* `outputTokens`
+* `estimatedCostUsd`
 
-The logger should never include API keys or full prompts.
+Do not log AWS credentials, full prompts, or secrets.
 
 ---
 
-# 16. Testing Strategy
+## 14. Testing Requirements
 
 Unit tests should verify:
 
-* prompt loading
-* prompt construction
-* provider invocation
-* successful execution
-* provider failure propagation
-* metrics collection
+* Agentless implements `IReviewArchitecture`
+* it calls `ILLMProvider.review()` exactly once
+* it uses `PromptBuilder`
+* it maps provider response into `RawReviewResult`
+* `llmCalls` is always `1`
+* provider errors are propagated
+* no direct repository access occurs
+* no Bedrock calls occur in tests
 
-Mock the provider during testing.
-
-No real API calls should occur.
-
----
-
-# 17. Performance Expectations
-
-Expected characteristics:
-
-| Metric                | Expected |
-| --------------------- | -------- |
-| LLM Calls             | 1        |
-| Latency               | Lowest   |
-| Cost                  | Lowest   |
-| Coordination Overhead | None     |
-
-This architecture serves as the efficiency baseline.
+Use `MockProvider` for tests.
 
 ---
 
-# 18. Acceptance Criteria
+## 15. Demo Requirement
 
-The implementation is complete when:
+Add a local demo script:
 
-* [ ] Implements `IReviewArchitecture`
-* [ ] Uses the Prompt Manager
-* [ ] Uses the `ILLMProvider`
-* [ ] Makes exactly one LLM call
+```text
+npm run demo:agentless
+```
+
+The demo should run:
+
+```text
+sample.diff
+  ↓
+PR Import Engine
+  ↓
+PR Snapshot
+  ↓
+Experiment Engine
+  ↓
+Architecture Registry
+  ↓
+AgentlessArchitecture
+  ↓
+MockProvider
+  ↓
+RawReviewResult
+```
+
+The demo should not require real Bedrock credentials by default.
+
+A separate live Bedrock smoke test may exist, but should not run automatically.
+
+---
+
+## 16. Acceptance Criteria
+
+* [ ] `AgentlessArchitecture` implements `IReviewArchitecture`
+* [ ] Uses shared PromptBuilder
+* [ ] Uses `ILLMProvider`
+* [ ] Makes exactly one provider call
 * [ ] Returns `RawReviewResult`
-* [ ] Records latency
-* [ ] Records token usage
-* [ ] Records API cost
-* [ ] Does not access repositories
+* [ ] Reports latency
+* [ ] Reports input tokens
+* [ ] Reports output tokens
+* [ ] Reports estimated cost
+* [ ] Sets `llmCalls = 1`
 * [ ] Does not validate JSON
-* [ ] Unit tests pass
+* [ ] Does not access repositories
+* [ ] Does not call Bedrock directly
+* [ ] Uses mock provider in tests
+* [ ] `npm run check` passes
+* [ ] `npm run demo:agentless` works
 
 ---
 
-# 19. AI Implementation Checklist
+## 17. AI Implementation Checklist
 
-Before submitting code, verify:
+Before submitting this RFC, verify:
 
 * [ ] Read `00-development-guidelines.md`
-* [ ] Public interface matches specification
-* [ ] No direct OpenAI SDK usage
+* [ ] Read `03-review-architecture-framework.md`
+* [ ] Read `03.5-llm-architecture.md`
+* [ ] No architecture-specific logic added to Experiment Engine
+* [ ] No provider-specific logic added to Agentless
+* [ ] No direct AWS SDK usage in Agentless
 * [ ] No hardcoded prompts
-* [ ] No retry logic
-* [ ] No database access
 * [ ] No TODO placeholders
 * [ ] Tests included
-* [ ] Documentation updated if implementation changed
+* [ ] README added or updated
 
 ---
 
-# 20. Future Improvements
+## 18. Out of Scope
 
-Potential future enhancements include:
+Do not implement:
 
-* streaming responses
-* prompt optimization
+* Validation Engine
+* Storage Engine
+* Evaluation Engine
+* Dashboard
+* Hierarchical Architecture
+* Consensus Architecture
+* AWS deployment
+
+---
+
+## 19. Future Improvements
+
+Future versions may add:
+
+* live Bedrock demo
+* prompt A/B testing
 * response caching
-* reasoning model support
-* provider failover
+* structured output enforcement
+* model comparison
+* replay-based batch runs
 
-These enhancements should be implemented in new versions without changing the baseline experiment after the prompt freeze.
+Do not add these until the baseline Agentless architecture is complete.
 
 ---
 
-# Summary
+## Summary
 
-The Agentless Review Architecture is the simplest review topology supported by the platform. It provides the experimental baseline against which all multi-agent communication architectures are compared.
+Agentless is the first real review architecture and the baseline condition for the research experiment.
 
-Its implementation should remain intentionally simple, deterministic, and isolated from validation, storage, and evaluation concerns.
+It must remain simple: one PR Snapshot, one prompt, one LLM provider call, one raw result.
