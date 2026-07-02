@@ -6,6 +6,6 @@ import {
 /** Reviews database concerns (SQL, schema, indexes, migrations, transactions). */
 export class DatabaseReviewer extends LlmReviewSpecialist {
   public constructor(deps: ReviewSpecialistDependencies) {
-    super("database", deps);
+    super({ role: "database", promptCategory: "hierarchical" }, deps);
   }
 }

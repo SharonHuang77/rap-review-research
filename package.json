@@ -16,6 +16,7 @@
     "demo:framework": "node scripts/demo-review-framework.ts",
     "demo:agentless": "node scripts/demo-agentless.ts",
     "demo:hierarchical": "node scripts/demo-hierarchical.ts",
+    "demo:consensus": "node scripts/demo-consensus.ts",
     "demo:evaluate": "node scripts/demo-evaluation.ts",
     "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "check": "npm run typecheck && npm run test"

@@ -21,6 +21,13 @@ export interface BuildPromptInput {
   readonly jsonSchema?: object;
   /** Common template name under `<version>/common/`. Defaults to `review-instructions`. */
   readonly commonTemplate?: string;
+  /**
+   * Optional extra content appended to the user prompt (after the PR context,
+   * before the schema). Used by multi-round architectures to inject
+   * round-specific context (e.g. peer findings for revision, candidates for
+   * voting) without a bespoke prompt builder.
+   */
+  readonly additionalContext?: string;
 }
 
 export interface PromptBuilderDependencies {
@@ -61,13 +68,16 @@ export class PromptBuilder {
       snapshot: input.snapshot,
       rawDiff: input.rawDiff,
     });
+    const withContext = input.additionalContext
+      ? `${context}\n\n${input.additionalContext.trim()}`
+      : context;
     const userPrompt = input.jsonSchema
-      ? `${context}\n\n## Expected JSON schema\n\n\`\`\`json\n${JSON.stringify(
+      ? `${withContext}\n\n## Expected JSON schema\n\n\`\`\`json\n${JSON.stringify(
           input.jsonSchema,
           null,
           2,
         )}\n\`\`\``
-      : context;
+      : withContext;
 
     return {
       systemPrompt,

@@ -18,3 +18,9 @@ export {
   createHierarchicalArchitecture,
 } from "./hierarchical/index.ts";
 export type { HierarchicalArchitectureDependencies } from "./hierarchical/index.ts";
+
+export {
+  ConsensusArchitecture,
+  createConsensusArchitecture,
+} from "./consensus/index.ts";
+export type { ConsensusArchitectureDependencies } from "./consensus/index.ts";

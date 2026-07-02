@@ -6,6 +6,6 @@ import {
 /** Reviews frontend concerns (components, UX, accessibility, state, rendering). */
 export class FrontendReviewer extends LlmReviewSpecialist {
   public constructor(deps: ReviewSpecialistDependencies) {
-    super("frontend", deps);
+    super({ role: "frontend", promptCategory: "hierarchical" }, deps);
   }
 }

@@ -18,6 +18,7 @@ See `docs/` for the full architecture and implementation specifications.
 | RFC-06 | Storage Engine | `src/storage/` | [module README](src/storage/README.md) |
 | RFC-07 | Research Evaluation Engine | `src/evaluation/` | [module README](src/evaluation/README.md) |
 | RFC-08 | Hierarchical Authority Review | `src/architectures/hierarchical/` | [module README](src/architectures/hierarchical/README.md) |
+| RFC-09 | Decentralized Consensus Review | `src/architectures/consensus/` | [module README](src/architectures/consensus/README.md) |
 
 The Experiment Engine is the core runtime: it creates experiments, manages their
 lifecycle, enforces idempotency, resolves and executes a review architecture,
