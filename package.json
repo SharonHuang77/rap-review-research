@@ -20,6 +20,7 @@
     "demo:evaluate": "node scripts/demo-evaluation.ts",
     "demo:export": "node scripts/demo-export.ts",
     "demo:workbench": "node scripts/demo-workbench.ts",
+    "dashboard": "node apps/research-workbench/server.ts",
     "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "check": "npm run typecheck && npm run test"
   },
