@@ -1,5 +1,38 @@
 /**
- * Public barrel for the storage layer (large-object artifacts).
+ * Public barrel for the storage layer.
  */
+
+// Large-object artifact storage (RFC-03.5).
 export type { RawDiffStorage } from "./raw-diff-storage.ts";
 export { InMemoryRawDiffStorage } from "./in-memory/in-memory-raw-diff-storage.ts";
+
+// Experiment-result storage (RFC-06).
+export type {
+  IStorageEngine,
+  StorageEngineDependencies,
+  StoreRawResultInput,
+  StoreValidatedResultInput,
+} from "./storage-engine.ts";
+export { StorageEngine } from "./storage-engine.ts";
+
+export type { RawResultRepository } from "./raw-result-repository.ts";
+export type { ValidatedResultRepository } from "./validated-result-repository.ts";
+export type { FindingRepository } from "./finding-repository.ts";
+
+export { InMemoryRawResultRepository } from "./in-memory/in-memory-raw-result-repository.ts";
+export { InMemoryValidatedResultRepository } from "./in-memory/in-memory-validated-result-repository.ts";
+export { InMemoryFindingRepository } from "./in-memory/in-memory-finding-repository.ts";
+
+export type {
+  StoredRawReviewResult,
+  StoredValidatedReviewResult,
+  StoredReviewFinding,
+  StoredExperimentResult,
+} from "./stored-models.ts";
+
+export {
+  StorageError,
+  StorageWriteError,
+  StorageReadError,
+  DuplicateArtifactError,
+} from "./storage-errors.ts";

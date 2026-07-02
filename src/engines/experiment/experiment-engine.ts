@@ -12,6 +12,7 @@ import type { SnapshotRepository } from "../../repositories/snapshot-repository.
 import type { Clock } from "../../shared/clock.ts";
 import type { IdGenerator } from "../../shared/id.ts";
 import type { Logger, LogContext } from "../../shared/logger.ts";
+import type { IStorageEngine } from "../../storage/storage-engine.ts";
 import type { IOutputValidator, IEvaluationTrigger } from "./ports.ts";
 
 import { buildIdempotencyKey } from "../../shared/id.ts";
@@ -37,6 +38,7 @@ export interface ExperimentEngineDependencies {
   readonly experiments: ExperimentRepository;
   readonly snapshots: SnapshotRepository;
   readonly registry: ArchitectureRegistry;
+  readonly storage: IStorageEngine;
   readonly validator: IOutputValidator;
   readonly evaluator: IEvaluationTrigger;
   readonly clock: Clock;
@@ -165,10 +167,22 @@ export class ExperimentEngine implements IExperimentEngine {
 
       const raw = await this.runArchitecture(experiment);
 
+      // Preserve the raw result immediately — even if validation later fails.
+      await this.deps.storage.storeRawResult({
+        experimentId: experiment.experimentId,
+        rawResult: raw,
+      });
+
       await this.transition(experiment.experimentId, "validating", ctx);
       const validated = await this.deps.validator.validate(raw, {
         experimentId: experiment.experimentId,
         promptVersion: experiment.promptVersion,
+      });
+
+      // Validation passed — persist the validated result and its findings.
+      await this.deps.storage.storeValidatedResult({
+        experimentId: experiment.experimentId,
+        validatedResult: validated,
       });
 
       await this.transition(experiment.experimentId, "evaluating", ctx);
