@@ -6,6 +6,6 @@ import {
 /** Reviews backend concerns (APIs, business logic, auth, validation, concurrency). */
 export class BackendReviewer extends LlmReviewSpecialist {
   public constructor(deps: ReviewSpecialistDependencies) {
-    super("backend", deps);
+    super({ role: "backend", promptCategory: "hierarchical" }, deps);
   }
 }
