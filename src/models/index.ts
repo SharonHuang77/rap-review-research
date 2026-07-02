@@ -38,3 +38,5 @@ export type {
   RawReviewResult,
   ValidatedReviewResult,
 } from "./review-result.ts";
+
+export type { ValidationMetadata } from "./validation-metadata.ts";

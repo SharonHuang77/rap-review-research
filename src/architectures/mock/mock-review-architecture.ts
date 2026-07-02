@@ -2,9 +2,21 @@ import type { ReviewArchitecture } from "../../models/experiment.ts";
 import type {
   ReviewExecutionInput,
   RawReviewResult,
-  ValidatedReviewResult,
 } from "../../models/review-result.ts";
+import type { ReviewFinding, RiskLevel } from "../../models/finding.ts";
 import type { IReviewArchitecture } from "../review-architecture.ts";
+
+/**
+ * A model-output-shaped object the mock places into `rawOutput` (what a real
+ * LLM would emit before validation). Deliberately independent of
+ * `ValidatedReviewResult`, which is the *post-validation* type (RFC-05).
+ */
+export interface MockReviewOutput {
+  readonly architecture?: ReviewArchitecture;
+  readonly summary: string;
+  readonly riskLevel?: RiskLevel;
+  readonly findings: ReviewFinding[];
+}
 
 /**
  * Configuration for {@link MockReviewArchitecture}.
@@ -17,8 +29,8 @@ export interface MockReviewArchitectureOptions {
   readonly name?: ReviewArchitecture;
   /** When set, `execute` rejects with this error (failure-path testing). */
   readonly failWith?: Error;
-  /** The validated-shaped object to place into `rawOutput`. */
-  readonly output?: ValidatedReviewResult;
+  /** The model-output-shaped object to place into `rawOutput`. */
+  readonly output?: MockReviewOutput;
   /** Execution metrics to report. Sensible defaults are supplied. */
   readonly metrics?: Partial<
     Pick<
@@ -61,7 +73,7 @@ export class MockReviewArchitecture implements IReviewArchitecture {
       throw this.options.failWith;
     }
 
-    const output: ValidatedReviewResult =
+    const output: MockReviewOutput =
       this.options.output ?? this.defaultOutput();
     const metrics = this.options.metrics ?? {};
 
@@ -79,13 +91,14 @@ export class MockReviewArchitecture implements IReviewArchitecture {
     };
   }
 
-  private defaultOutput(): ValidatedReviewResult {
+  private defaultOutput(): MockReviewOutput {
     return {
       architecture: this.name,
       summary: "Mock review summary.",
       riskLevel: "low",
       findings: [
         {
+          id: "finding-mock-1",
           title: "Mock finding",
           category: "correctness",
           severity: "low",
@@ -96,7 +109,6 @@ export class MockReviewArchitecture implements IReviewArchitecture {
           confidence: 0.5,
         },
       ],
-      messageCount: 1,
     };
   }
 }

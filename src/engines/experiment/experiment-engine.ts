@@ -166,7 +166,10 @@ export class ExperimentEngine implements IExperimentEngine {
       const raw = await this.runArchitecture(experiment);
 
       await this.transition(experiment.experimentId, "validating", ctx);
-      const validated = await this.deps.validator.validate(raw);
+      const validated = await this.deps.validator.validate(raw, {
+        experimentId: experiment.experimentId,
+        promptVersion: experiment.promptVersion,
+      });
 
       await this.transition(experiment.experimentId, "evaluating", ctx);
       await this.deps.evaluator.evaluate(experiment.experimentId, validated);

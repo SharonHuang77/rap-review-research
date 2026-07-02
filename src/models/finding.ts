@@ -20,6 +20,11 @@ export type RiskLevel = SeverityLevel;
  * Findings are immutable once validated.
  */
 export interface ReviewFinding {
+  /**
+   * Stable identifier for the finding. Assigned by the Validation Engine
+   * (RFC-05) — deterministic, not model-invented.
+   */
+  readonly id: string;
   /** Short human-readable title for the issue. */
   readonly title: string;
   /** Issue category (e.g. "security", "performance", "correctness"). */

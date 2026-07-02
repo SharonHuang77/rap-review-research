@@ -14,12 +14,13 @@ See `docs/` for the full architecture and implementation specifications.
 | RFC-03 | Review Architecture Framework | `src/architectures/` | [module README](src/architectures/README.md) |
 | RFC-03.5 | Shared LLM Architecture | `src/llm/` | [module README](src/llm/README.md) |
 | RFC-04 | Agentless Review Architecture | `src/architectures/agentless/` | [module README](src/architectures/agentless/README.md) |
+| RFC-05 | Validation & Result Processing | `src/validation/` | [module README](src/validation/README.md) |
 
 The Experiment Engine is the core runtime: it creates experiments, manages their
-lifecycle, enforces idempotency, resolves and executes a review architecture, and
-returns execution results. Validation, storage, evaluation, dashboard, and the
-real review architectures are future RFCs and are present here only as injected
-interfaces with mock/placeholder implementations.
+lifecycle, enforces idempotency, resolves and executes a review architecture,
+validates the result, and returns execution results. Storage, evaluation, the
+dashboard, and the Hierarchical/Consensus architectures are future RFCs; the
+evaluation step is still an injected no-op placeholder.
 
 ## Quick start
 

@@ -1,6 +1,7 @@
 import type { ReviewArchitecture } from "./experiment.ts";
 import type { PRSnapshot } from "./snapshot.ts";
-import type { ReviewFinding, RiskLevel } from "./finding.ts";
+import type { ReviewFinding } from "./finding.ts";
+import type { ValidationMetadata } from "./validation-metadata.ts";
 
 /**
  * The uniform input every review architecture receives.
@@ -43,15 +44,21 @@ export interface RawReviewResult {
 }
 
 /**
- * The structured, schema-safe result produced after validation.
- *
- * Returned by the validation port (see `IOutputValidator`). The real schema
- * validation that produces this is owned by the Validation Engine RFC.
+ * The structured, schema-valid result produced by the Validation Engine
+ * (RFC-05). Unlike {@link RawReviewResult}, this is guaranteed to satisfy the
+ * project schema. Execution metrics are carried through from the raw result,
+ * and `validation` records how it was validated/normalized.
  */
 export interface ValidatedReviewResult {
   readonly architecture: ReviewArchitecture;
   readonly summary: string;
-  readonly riskLevel: RiskLevel;
   readonly findings: ReviewFinding[];
+  readonly validation: ValidationMetadata;
+
+  readonly latencyMs: number;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly estimatedCostUsd: number;
+  readonly llmCalls: number;
   readonly messageCount: number;
 }

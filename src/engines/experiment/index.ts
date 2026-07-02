@@ -7,8 +7,9 @@ export type {
 } from "./experiment-engine.ts";
 export { ExperimentEngine } from "./experiment-engine.ts";
 
-export type { IOutputValidator, IEvaluationTrigger } from "./ports.ts";
-export {
-  PassthroughOutputValidator,
-  NoopEvaluationTrigger,
-} from "./placeholders.ts";
+export type {
+  IOutputValidator,
+  IEvaluationTrigger,
+  OutputValidationContext,
+} from "./ports.ts";
+export { NoopEvaluationTrigger } from "./placeholders.ts";
