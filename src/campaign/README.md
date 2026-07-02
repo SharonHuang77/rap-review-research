@@ -97,6 +97,22 @@ Run the end-to-end demo (mock provider, no Bedrock):
 npm run campaign:run
 ```
 
+### Live run against real Bedrock
+
+`npm run campaign:live` runs the same campaign on a **small subset of real
+dataset PRs** through the Bedrock provider — to validate the pipeline before a
+full campaign. It uses the AWS default credential chain (no keys in the repo),
+is **not** part of `npm run check` (it costs inference and is non-deterministic),
+and never downloads data. Provide real dataset files (in the adapter raw shapes)
+and configure AWS first:
+
+```
+aws sso login
+npm run smoke:bedrock                         # confirm connectivity
+# place qodo.json / swe.json under ./data/benchmark  (or set BENCHMARK_DATA_DIR)
+BENCHMARK_LIMIT=1 npm run campaign:live
+```
+
 ## Out of scope
 
 No new evaluation metrics, no statistical analysis, no dashboard work, no
