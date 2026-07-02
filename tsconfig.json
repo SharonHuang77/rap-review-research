@@ -34,6 +34,7 @@
     "scripts/demo-consensus.ts",
     "scripts/demo-evaluation.ts",
     "scripts/demo-export.ts",
+    "scripts/demo-workbench.ts",
     "scripts/smoke-bedrock.ts"
   ]
 }
