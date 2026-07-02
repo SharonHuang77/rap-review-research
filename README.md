@@ -22,6 +22,7 @@ See `docs/` for the full architecture and implementation specifications.
 | RFC-10 | Export Service | `src/export/` | [module README](src/export/README.md) |
 | RFC-11 | Research Workbench (backend) | `src/workbench/` | [module README](src/workbench/README.md) |
 | RFC-11 | Research Dashboard (frontend demo) | `apps/research-workbench/` | [module README](apps/research-workbench/README.md) |
+| RFC-13 | Benchmark Dataset & Ground-Truth Evaluation | `src/benchmark/` | [module README](src/benchmark/README.md) |
 
 The Experiment Engine is the core runtime: it creates experiments, manages their
 lifecycle, enforces idempotency, resolves and executes a review architecture,
@@ -32,6 +33,9 @@ the Research Workbench (RFC-11) aggregates all of these into read-only,
 presentation-ready view models for a researcher-facing UI, and the Research
 Dashboard (`apps/research-workbench/`, run with `npm run dashboard`) is a
 minimal, dependency-free demo UI that renders those view models as HTML tables.
+Benchmark Dataset & Ground-Truth Evaluation (RFC-13) scores the three
+architectures against external PR-review datasets (Qodo PR-Review-Bench,
+SWE-PRBench) with precision/recall/F1/localization (`npm run benchmark:*`).
 The inline evaluation step in the experiment lifecycle is still an injected
 no-op placeholder.
 
