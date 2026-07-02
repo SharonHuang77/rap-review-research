@@ -24,11 +24,15 @@ export interface ModelPricing {
 }
 
 /**
- * Default Bedrock model id. Overridable via `LLM_DEFAULT_MODEL`. Teams should
- * confirm the approved model and, for cross-region access, may need to use an
- * inference-profile id instead of a bare model id.
+ * Default Bedrock model id. Overridable via `LLM_DEFAULT_MODEL`.
+ *
+ * This is a cross-region **inference profile** id (verified working in
+ * us-east-1). Newer Claude Sonnet models are only invokable via a profile, not
+ * a bare on-demand model id. Switch to another approved Sonnet (e.g.
+ * `us.anthropic.claude-sonnet-4-6` or `us.anthropic.claude-sonnet-5`) via
+ * `LLM_DEFAULT_MODEL`.
  */
-const DEFAULT_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0";
+const DEFAULT_MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0";
 
 function numberFromEnv(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -42,7 +46,7 @@ function numberFromEnv(name: string, fallback: number): number {
 /** Resolved LLM configuration for the current process. */
 export const LLM_CONFIG: LLMConfig = {
   provider: process.env.LLM_PROVIDER === "mock" ? "mock" : "bedrock",
-  region: process.env.LLM_REGION ?? process.env.AWS_REGION ?? "ca-central-1",
+  region: process.env.LLM_REGION ?? process.env.AWS_REGION ?? "us-east-1",
   defaultModel: process.env.LLM_DEFAULT_MODEL ?? DEFAULT_MODEL_ID,
   temperature: numberFromEnv("LLM_TEMPERATURE", 0),
   maxTokens: numberFromEnv("LLM_MAX_TOKENS", 4096),
@@ -50,9 +54,22 @@ export const LLM_CONFIG: LLMConfig = {
 
 /**
  * Approximate pricing table (USD per 1K tokens). Values are estimates for
- * research cost-tracking, not billing. Unknown models estimate `0`.
+ * research cost-tracking, not billing — confirm current Bedrock pricing before
+ * relying on cost metrics. Unknown models estimate `0`.
+ *
+ * Claude Sonnet 4.x list price is $3 / MTok input and $15 / MTok output for the
+ * standard (≤200K) context tier. Cross-region inference profiles share the
+ * underlying model's price, so `us.`/`global.` variants are keyed separately.
  */
 export const LLM_PRICING: Record<string, ModelPricing> = {
+  "us.anthropic.claude-sonnet-4-5-20250929-v1:0": {
+    inputPer1kUsd: 0.003,
+    outputPer1kUsd: 0.015,
+  },
+  "global.anthropic.claude-sonnet-4-5-20250929-v1:0": {
+    inputPer1kUsd: 0.003,
+    outputPer1kUsd: 0.015,
+  },
   "anthropic.claude-3-5-sonnet-20240620-v1:0": {
     inputPer1kUsd: 0.003,
     outputPer1kUsd: 0.015,

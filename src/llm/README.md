@@ -107,8 +107,8 @@ the prompt-freeze milestone. Prompts are never hardcoded in source.
 | Env var | Default | Meaning |
 | ------- | ------- | ------- |
 | `LLM_PROVIDER` | `bedrock` | `bedrock` or `mock` |
-| `LLM_REGION` / `AWS_REGION` | `ca-central-1` | Bedrock region |
-| `LLM_DEFAULT_MODEL` | `anthropic.claude-3-5-sonnet-20240620-v1:0` | model id (confirm the approved model; an inference-profile id may be required for cross-region access) |
+| `LLM_REGION` / `AWS_REGION` | `us-east-1` | Bedrock region |
+| `LLM_DEFAULT_MODEL` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | model id — a cross-region **inference profile** (newer Sonnets aren't offered as bare on-demand ids); switch to another approved Sonnet (e.g. `us.anthropic.claude-sonnet-4-6`, `us.anthropic.claude-sonnet-5`) as needed |
 | `LLM_TEMPERATURE` | `0` | sampling temperature |
 | `LLM_MAX_TOKENS` | `4096` | max output tokens |
 
