@@ -12,3 +12,9 @@ export type { MockReviewArchitectureOptions } from "./mock/mock-review-architect
 
 export { AgentlessArchitecture } from "./agentless/index.ts";
 export type { AgentlessArchitectureDependencies } from "./agentless/index.ts";
+
+export {
+  HierarchicalArchitecture,
+  createHierarchicalArchitecture,
+} from "./hierarchical/index.ts";
+export type { HierarchicalArchitectureDependencies } from "./hierarchical/index.ts";
