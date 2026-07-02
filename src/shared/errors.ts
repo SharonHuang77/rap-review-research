@@ -32,9 +32,13 @@ export class ValidationError extends DomainError {
   public readonly code: string = "VALIDATION_ERROR";
 }
 
-/** A persistence operation failed. */
+/**
+ * A persistence operation failed. Serves as the base for the Storage Engine's
+ * error hierarchy (RFC-06), so `code` is typed as `string` to let subclasses
+ * supply their own code.
+ */
 export class StorageError extends DomainError {
-  public readonly code = "STORAGE_ERROR";
+  public readonly code: string = "STORAGE_ERROR";
 }
 
 /** An external provider (e.g. an LLM) failed. */

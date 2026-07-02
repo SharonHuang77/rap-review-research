@@ -3,6 +3,7 @@ import type { ArchitectureRegistry } from "../../architectures/review-architectu
 import type { ExperimentRepository } from "../../repositories/experiment-repository.ts";
 import type { SnapshotRepository } from "../../repositories/snapshot-repository.ts";
 import type { IOutputValidator, IEvaluationTrigger } from "../../engines/experiment/ports.ts";
+import type { IStorageEngine } from "../../storage/storage-engine.ts";
 import type { Clock } from "../../shared/clock.ts";
 import type { IdGenerator } from "../../shared/id.ts";
 import type { Logger } from "../../shared/logger.ts";
@@ -14,6 +15,12 @@ import { InMemoryExperimentRepository } from "../../repositories/in-memory/in-me
 import { InMemorySnapshotRepository } from "../../repositories/in-memory/in-memory-snapshot-repository.ts";
 import { NoopEvaluationTrigger } from "../../engines/experiment/placeholders.ts";
 import { ValidationEngine } from "../../validation/index.ts";
+import {
+  StorageEngine,
+  InMemoryRawResultRepository,
+  InMemoryValidatedResultRepository,
+  InMemoryFindingRepository,
+} from "../../storage/index.ts";
 import { SystemClock } from "../../shared/clock.ts";
 import { DefaultIdGenerator } from "../../shared/id.ts";
 import { NoopLogger } from "../../shared/logger.ts";
@@ -37,6 +44,7 @@ export interface ExperimentServiceContext {
   readonly experiments: ExperimentRepository;
   readonly snapshots: SnapshotRepository;
   readonly registry: ArchitectureRegistry;
+  readonly storage: IStorageEngine;
   readonly validator: IOutputValidator;
   readonly evaluator: IEvaluationTrigger;
   readonly clock: Clock;
@@ -64,11 +72,21 @@ export function createExperimentService(
   const clock = overrides.clock ?? new SystemClock();
   const idGenerator = overrides.idGenerator ?? new DefaultIdGenerator();
   const logger = overrides.logger ?? new NoopLogger();
+  const storage =
+    overrides.storage ??
+    new StorageEngine({
+      rawResults: new InMemoryRawResultRepository(),
+      validatedResults: new InMemoryValidatedResultRepository(),
+      findings: new InMemoryFindingRepository(),
+      clock,
+      logger,
+    });
 
   const engine = new ExperimentEngine({
     experiments,
     snapshots,
     registry,
+    storage,
     validator,
     evaluator,
     clock,
@@ -84,6 +102,7 @@ export function createExperimentService(
     experiments,
     snapshots,
     registry,
+    storage,
     validator,
     evaluator,
     clock,
