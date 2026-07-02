@@ -23,6 +23,7 @@ See `docs/` for the full architecture and implementation specifications.
 | RFC-11 | Research Workbench (backend) | `src/workbench/` | [module README](src/workbench/README.md) |
 | RFC-11 | Research Dashboard (frontend demo) | `apps/research-workbench/` | [module README](apps/research-workbench/README.md) |
 | RFC-13 | Benchmark Dataset & Ground-Truth Evaluation | `src/benchmark/` | [module README](src/benchmark/README.md) |
+| — | Experiment Campaign Runner | `src/campaign/` | [module README](src/campaign/README.md) |
 
 The Experiment Engine is the core runtime: it creates experiments, manages their
 lifecycle, enforces idempotency, resolves and executes a review architecture,
@@ -36,6 +37,10 @@ minimal, dependency-free demo UI that renders those view models as HTML tables.
 Benchmark Dataset & Ground-Truth Evaluation (RFC-13) scores the three
 architectures against external PR-review datasets (Qodo PR-Review-Bench,
 SWE-PRBench) with precision/recall/F1/localization (`npm run benchmark:*`).
+The Experiment Campaign Runner (`src/campaign/`, `npm run campaign:run`)
+orchestrates a full campaign — every benchmark instance reviewed by all three
+architectures — with a reproducible manifest, retries, resume, and
+campaign-level CSV/JSON, following the methodology in `docs/experiment/`.
 The inline evaluation step in the experiment lifecycle is still an injected
 no-op placeholder.
 

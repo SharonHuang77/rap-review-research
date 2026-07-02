@@ -41,6 +41,7 @@
     "scripts/benchmark-run.ts",
     "scripts/benchmark-evaluate.ts",
     "scripts/benchmark-export.ts",
+    "scripts/campaign-run.ts",
     "scripts/smoke-bedrock.ts"
   ]
 }
