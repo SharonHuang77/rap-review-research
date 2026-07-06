@@ -22,10 +22,14 @@ export interface ResearchExportRow {
   readonly estimatedCostUsd: number;
   readonly llmCalls: number;
   readonly messageCount: number;
+  /** Supporting heuristic (severity + confidence + volume), NOT correctness. */
   readonly evidenceScore: number;
   readonly architectureAgreement?: number;
   readonly acceptedFindingRate?: number;
   readonly laterFixRate?: number;
+  /** Industrial-verification corroboration signals (RAP Portal). */
+  readonly staticAnalysisAgreement?: number;
+  readonly llmJudgeValidation?: number;
 }
 
 /**
@@ -53,6 +57,8 @@ export const STABLE_COLUMNS: readonly (keyof ResearchExportRow)[] = [
   "architectureAgreement",
   "acceptedFindingRate",
   "laterFixRate",
+  "staticAnalysisAgreement",
+  "llmJudgeValidation",
 ];
 
 /**
@@ -85,6 +91,8 @@ export function toResearchExportRows(
         architectureAgreement: metrics.researchEvidence.architectureAgreement,
         acceptedFindingRate: metrics.researchEvidence.acceptedFindingRate,
         laterFixRate: metrics.researchEvidence.laterFixRate,
+        staticAnalysisAgreement: metrics.researchEvidence.staticAnalysisAgreement,
+        llmJudgeValidation: metrics.researchEvidence.llmJudgeValidation,
       });
     }
   }

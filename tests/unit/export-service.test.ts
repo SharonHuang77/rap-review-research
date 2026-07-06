@@ -87,7 +87,10 @@ test("CSV export writes a header in the stable column order", async () => {
   const result = await exporter.export(sampleInput());
   const [header] = result.content.split("\n");
   assert.equal(header, STABLE_COLUMNS.join(","));
-  assert.equal(STABLE_COLUMNS.length, 19);
+  // 19 frozen columns + staticAnalysisAgreement + llmJudgeValidation (industrial, additive).
+  assert.equal(STABLE_COLUMNS.length, 21);
+  assert.ok(STABLE_COLUMNS.includes("staticAnalysisAgreement"));
+  assert.ok(STABLE_COLUMNS.includes("llmJudgeValidation"));
 });
 
 test("CSV export emits one row per architecture per comparison", async () => {
@@ -119,9 +122,13 @@ test("CSV renders undefined optional columns as empty strings", async () => {
   const agreementIdx = STABLE_COLUMNS.indexOf("architectureAgreement");
   const acceptedIdx = STABLE_COLUMNS.indexOf("acceptedFindingRate");
   const fixIdx = STABLE_COLUMNS.indexOf("laterFixRate");
+  const staticIdx = STABLE_COLUMNS.indexOf("staticAnalysisAgreement");
+  const judgeIdx = STABLE_COLUMNS.indexOf("llmJudgeValidation");
   assert.equal(firstRow[agreementIdx], "");
   assert.equal(firstRow[acceptedIdx], "");
   assert.equal(firstRow[fixIdx], "");
+  assert.equal(firstRow[staticIdx], "");
+  assert.equal(firstRow[judgeIdx], "");
 });
 
 test("CSV preserves numbers verbatim", async () => {
