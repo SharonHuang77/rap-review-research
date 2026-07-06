@@ -17,6 +17,7 @@ import { LLM_CONFIG } from "../../config/llm.ts";
 import {
   LlmReviewSpecialist,
   parseSpecialistReview,
+  SPECIALIST_FINDINGS_SCHEMA,
 } from "../shared/review-specialist.ts";
 
 const VOTE_VALUES: readonly ConsensusVoteValue[] = ["accept", "reject", "revise"];
@@ -77,7 +78,12 @@ export class ConsensusSpecialist implements IConsensusSpecialist {
     input: ReviewExecutionInput,
     peerFindings: ReviewFinding[],
   ): Promise<SpecialistReviewResult> {
-    const response = await this.callRound(input, "revision", renderFindings(peerFindings));
+    const response = await this.callRound(
+      input,
+      "revision",
+      renderFindings(peerFindings),
+      SPECIALIST_FINDINGS_SCHEMA,
+    );
     const parsed = parseSpecialistReview(response.text, this.role);
     return {
       role: this.role,
@@ -105,11 +111,17 @@ export class ConsensusSpecialist implements IConsensusSpecialist {
     };
   }
 
-  /** One consensus-round LLM call with round-specific context appended. */
+  /**
+   * One consensus-round LLM call with round-specific context appended. Rounds
+   * whose output is parsed as findings (revision) pass the findings schema so
+   * the model returns JSON; the voting round omits it because its template
+   * already embeds its own `{ votes: [...] }` shape.
+   */
   private async callRound(
     input: ReviewExecutionInput,
     templateName: string,
     additionalContext: string,
+    jsonSchema?: object,
   ) {
     const rawDiff = await this.rawDiffStorage.getRawDiff(
       input.snapshot.rawDiffS3Key,
@@ -123,6 +135,7 @@ export class ConsensusSpecialist implements IConsensusSpecialist {
       temperature: this.config.temperature,
       maxTokens: this.config.maxTokens,
       additionalContext,
+      jsonSchema,
     });
     return this.provider.review(request);
   }
