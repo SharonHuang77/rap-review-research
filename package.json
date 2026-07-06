@@ -25,6 +25,8 @@
     "benchmark:run": "node scripts/benchmark-run.ts",
     "benchmark:evaluate": "node scripts/benchmark-evaluate.ts",
     "benchmark:export": "node scripts/benchmark-export.ts",
+    "campaign:run": "node scripts/campaign-run.ts",
+    "campaign:live": "node scripts/campaign-live.ts",
     "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "check": "npm run typecheck && npm run test"
   },

@@ -87,10 +87,18 @@ variable).
 - **SWE-PRBench** (`SWEPRBenchAdapter`) — human-agreement benchmark; labels are
   review comments keyed by (file, line) with no severity/category.
 
-> The exact upstream field names may differ from these adapters' assumed raw
-> shapes (`QodoRawDataset` / `SWEPRBenchDataset`); adjust the adapter if the real
-> schema differs. Adapters do no I/O — the caller loads the rows, which keeps
-> large datasets out of the module and out of tests.
+Adapters do no I/O — the caller loads the rows — which keeps large datasets out
+of the module and out of tests.
+
+**Tolerant field resolution.** Because the exact upstream spelling can vary
+between dataset exports/versions, each adapter resolves every field from a
+documented list of aliases (e.g. diff ← `diff` | `patch` | `pr_diff`; file ←
+`file_path` | `file` | `path` | `filename`; start line ← `line_start` |
+`start_line` | `line` | `line_number`; issues ← `issues` | `review_comments` |
+`ground_truth` | `labels` | `annotations`). Numeric fields also accept numeric
+strings. If a real export uses a name not yet listed, add it to the alias list
+in the adapter (see the field comments) rather than reshaping the data. Always
+confirm the authoritative schema at the dataset source before an official run.
 
 ## Scripts (mock provider, no Bedrock)
 
