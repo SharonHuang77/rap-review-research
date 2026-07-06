@@ -37,6 +37,34 @@ export interface SpecialistConfig {
 }
 
 /**
+ * The JSON output contract every specialist review/revision round must follow,
+ * mirroring the exact shape {@link toReviewFinding} requires. It is passed to
+ * the {@link PromptBuilder} (rendered into the user prompt) so the model returns
+ * parseable findings instead of a Markdown review.
+ *
+ * Without it the specialist role templates only *reference* "the JSON shape
+ * described in the system instructions" — a shape that is never actually shown —
+ * so the model emits prose and {@link parseSpecialistReview} silently drops
+ * every finding, leaving Hierarchical and Consensus with 0 findings. Agentless
+ * is unaffected because its own template embeds this shape inline.
+ */
+export const SPECIALIST_FINDINGS_SCHEMA = {
+  summary: "one-paragraph overall assessment",
+  findings: [
+    {
+      title: "short title",
+      severity: "low | medium | high | critical",
+      category: "correctness | security | performance | maintainability | ...",
+      file: "path/to/file",
+      line: 0,
+      description: "what the problem is",
+      recommendation: "how to fix it",
+      confidence: 0.0,
+    },
+  ],
+};
+
+/**
  * Shared base for LLM-backed specialists.
  *
  * Independently builds a role-specific prompt (common instructions +
@@ -81,6 +109,7 @@ export class LlmReviewSpecialist implements IReviewSpecialist {
       modelId: input.modelVersion,
       temperature: this.config.temperature,
       maxTokens: this.config.maxTokens,
+      jsonSchema: SPECIALIST_FINDINGS_SCHEMA,
     });
     const response = await this.provider.review(request);
     const parsed = parseSpecialistReview(response.text, this.role);
