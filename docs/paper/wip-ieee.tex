@@ -1,0 +1,466 @@
+%% ===========================================================================
+%% Evaluating Multi-Agent Communication Topologies for Automated Code Review
+%% Revised work-in-progress draft. TARGET: 5 pages max, IEEE conference format.
+%%
+%% Overleaf: New Project -> paste this file. Compiler: pdfLaTeX.
+%% IEEEtran.cls ships with Overleaf (official template:
+%% https://www.ieee.org/conferences/publishing/templates). Insert your own
+%% architecture diagram where Fig. 1 is commented in Section IV-B.
+%% ===========================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+
+\begin{document}
+
+\title{Evaluating Multi-Agent Communication Topologies\\
+for Automated Code Review: A Work-in-Progress Study}
+
+\author{\IEEEauthorblockN{En-Ping Su, Tong Wu, Shiting Huang, Mengshan Li}
+\IEEEauthorblockA{\textit{Khoury College of Computer Sciences} \\
+\textit{Northeastern University}, Vancouver, Canada}}
+
+\maketitle
+
+\begin{abstract}
+Large Language Models (LLMs) are increasingly used for automated code review, and
+recent multi-agent systems suggest that dividing work among specialized agents can
+improve reasoning on complex tasks. It remains unclear, however, whether the
+\emph{communication topology} among agents---not merely their presence---affects
+review quality, cost, and efficiency. This work-in-progress paper asks how
+communication topology affects the effectiveness and efficiency of automated code
+review. We compare three approaches under identical conditions: an Agentless
+single-LLM baseline, a Hierarchical Authority architecture, and a Decentralized
+Peer Consensus architecture. We have implemented a modular platform that reviews
+the same immutable pull-request snapshot with all three architectures through a
+shared import, review, validation, storage, and evaluation pipeline backed by a
+production LLM service, isolating topology as the only independent variable.
+Evaluation spans three complementary datasets: Qodo PR-Review-Bench (objective
+ground truth), SWE-PRBench (agreement with human reviewers), and an actively
+developed full-stack data portal used as an industrial case study. Because the
+industrial repository lacks authoritative ground truth, we introduce an
+\emph{industrial verification} methodology that corroborates findings through
+cross-architecture agreement, static-analysis agreement, independent LLM-judge
+validation, and later-fix rate rather than precision and recall. Preliminary runs
+show communication overhead and latency rising steeply from Agentless to
+Hierarchical to Consensus, framing the accuracy/cost trade-off the full study will
+quantify.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Large Language Models, Multi-Agent Systems, Automated Code Review, Software
+Engineering, Evaluation Methodology.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Code review is a central quality-assurance practice: before code is merged,
+reviewers examine pull requests (PRs) for functional defects, security problems,
+maintainability issues, and architectural inconsistencies. It is also
+time-consuming and hard to scale, especially for full-stack systems spanning
+frontend, backend, databases, and deployment infrastructure. LLMs can summarize
+changes, flag bugs, and recommend fixes, and multi-agent frameworks such as
+ChatDev and MetaGPT suggest decomposing complex tasks among specialized
+agents~\cite{chatdev,metagpt}.
+
+Existing work, however, usually evaluates \emph{complete} agent systems rather than
+isolating the role of communication topology. A centralized manager may behave
+very differently from a decentralized group in which agents discuss findings
+directly: centralized coordination may be faster and cheaper, while decentralized
+discussion may catch more cross-component issues. We therefore study whether the
+\emph{structure} of agent communication---holding the model, prompts, and roles
+fixed---changes review outcomes:
+
+\begin{quote}
+\textbf{RQ:} How does the communication topology of a multi-agent system affect the
+effectiveness and efficiency of automated code review?
+\end{quote}
+We refine this into three sub-questions:
+\begin{itemize}
+  \item \textbf{RQ1 (Effectiveness).} Does topology change defect-detection
+  quality (precision, recall, localization) and agreement with human reviewers?
+  \item \textbf{RQ2 (Efficiency).} How does topology affect latency, token cost,
+  and coordination overhead (LLM calls, inter-agent messages)?
+  \item \textbf{RQ3 (Complexity interaction).} Does the effect of topology depend
+  on PR complexity, e.g., localized versus cross-component changes?
+\end{itemize}
+
+We compare Agentless, Hierarchical Authority, and Decentralized Peer Consensus.
+Agentless is a strong single-LLM baseline, since simple non-agent pipelines can be
+competitive on software-engineering tasks~\cite{agentless}; the two multi-agent
+systems share specialist roles but differ in how agents communicate. Our
+contributions are:
+\begin{itemize}
+  \item A controlled design and an \emph{implemented}, reproducible platform in
+  which review architecture is the only independent variable.
+  \item A three-dataset evaluation framework combining objective benchmark
+  correctness, human-reviewer agreement, and an industrial case study.
+  \item An \emph{industrial verification} methodology that corroborates findings
+  without authoritative ground truth.
+  \item Preliminary observations on the communication-cost trade-off across
+  topologies.
+\end{itemize}
+
+\section{Related Work}
+\subsection{LLM-Based Software Engineering}
+LLMs have been applied to code generation, program repair, bug localization, and
+test generation. SWE-bench benchmarks real GitHub issues and PRs and shows the
+difficulty of resolving realistic problems with language models~\cite{swebench}.
+Agentless challenges the assumption that complex agent systems are always
+necessary, using a simple localize--repair--validate pipeline~\cite{agentless};
+its strong performance makes it an essential baseline for judging whether
+multi-agent communication adds measurable value.
+
+\subsection{Multi-Agent Software Engineering}
+Multi-agent systems assign roles to multiple LLM agents. ChatDev models
+development as communication among design, coding, and testing
+agents~\cite{chatdev}; MetaGPT adds structured workflows and role-based
+collaboration to reduce inconsistency~\cite{metagpt}. Surveys argue the area is
+promising but under-evaluated empirically~\cite{survey}, and other work finds that
+agent systems fail through coordination overhead, cascading errors, and weak
+verification~\cite{failures}. These failure modes are precisely properties of
+communication structure, motivating our controlled comparison of topologies rather
+than of whole systems.
+
+\subsection{Evaluation Without Ground Truth}
+Objective benchmarks require labeled defects, which real industrial repositories
+rarely provide. Using a separate LLM as an impartial judge is an increasingly
+common way to assess outputs at scale~\cite{llmjudge}. We adopt LLM-as-a-judge as
+one \emph{corroboration} signal---not a source of ground truth---and combine it
+with cross-architecture agreement and conventional static analysis to triangulate
+the credibility of findings on a live repository.
+
+\section{Research Design}
+\subsection{Variables}
+The independent variable is communication topology across three architectures:
+(1)~\textbf{Agentless}: one LLM reviews the PR without agent communication;
+(2)~\textbf{Hierarchical Authority}: a manager assigns work to specialists and
+synthesizes their findings; (3)~\textbf{Decentralized Peer Consensus}: specialists
+review independently, exchange findings, and vote to converge. Controlled
+variables (model, prompts, roles, PR snapshot) are held fixed; dependent variables
+capture effectiveness and efficiency (Table~\ref{tab:vars}).
+
+\begin{table}[t]
+\caption{Research Variables}
+\label{tab:vars}
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Type} & \textbf{Description} \\
+\midrule
+Independent   & Communication topology \\
+Controlled    & Model, prompts, roles, PR snapshot \\
+Effectiveness & Precision, recall, F1, localization; corroboration \\
+Efficiency    & Latency, token cost, LLM calls, message count \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hypotheses}
+\textbf{H1:} Hierarchical Authority has lower latency and token cost than
+Decentralized Peer Consensus (RQ2). \textbf{H2:} Decentralized Peer Consensus
+achieves higher recall on complex or cross-component PRs (RQ1, RQ3).
+\textbf{H3:} Agentless is competitive on simple, localized PRs (RQ1, RQ3).
+\textbf{H4:} The effect of topology grows with PR complexity (RQ3).
+
+\section{Platform and Methodology}
+\subsection{Experimental Platform}
+We implemented a modular platform that drives every architecture through the same
+pipeline: PR import produces an immutable snapshot; the architecture under test
+reviews that snapshot; a validation stage normalizes raw model output into
+structured findings; results are stored; and an evaluation engine computes metrics.
+A campaign runner imports each PR once and reviews the shared snapshot with all
+three architectures, so topology is the only variable (\emph{fairness policy}). All
+architectures use the same foundation model, prompts, and roles; reviews run
+against Anthropic Claude on Amazon Bedrock.
+
+\subsection{Architectures}
+% ===== FIGURE: upload your diagram to Overleaf as the filename below =====
+% (spans both columns; place the image at the project root or in a figures/ folder)
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{architectures-comparison.png}
+  \caption{The three review architectures compared. (a)~\textbf{Agentless}:
+  a single LLM reviews the pull request with no agent communication.
+  (b)~\textbf{Hierarchical Authority}: a coordinator assigns the diff to
+  specialist agents (e.g., UI, API, data) and aggregates their findings---a
+  one-to-many, coordinator-mediated pattern with no peer communication.
+  (c)~\textbf{Decentralized Peer Consensus}: dynamically selected specialists
+  review independently and then discuss directly (many-to-many) to resolve
+  conflicts and produce a consensus report. Solid arrows denote control/task
+  flow; dashed arrows denote peer communication.}
+  \label{fig:arch}
+\end{figure*}
+Figure~\ref{fig:arch} contrasts the three architectures. Agentless reviews the
+diff in a single pass. Hierarchical Authority has a coordinator (manager) direct
+frontend, backend, and database specialists, then deterministically merges their
+findings. Decentralized Peer Consensus uses the same specialists, which first
+review independently, then exchange findings and vote to reach a shared set. The
+multi-agent architectures share specialist implementations and prompts, differing
+only in coordination and message flow.
+
+\subsection{Datasets}
+Three datasets provide complementary evidence: \textbf{Qodo PR-Review-Bench}
+(PRs with injected defects and explicit ground truth $\rightarrow$ precision,
+recall, F1, localization); \textbf{SWE-PRBench} (real PRs with human review
+comments, interpreted as agreement with reviewers rather than absolute
+correctness); and an \textbf{industrial case study}---an actively developed
+full-stack data portal (React frontend, backend APIs, database logic,
+authentication, cloud deployment)---reviewed on real PRs for ecological validity
+but without authoritative ground truth.
+
+\subsection{Evaluation Metrics}
+Metrics are read according to the evidence each dataset offers
+(Table~\ref{tab:metrics}). For the industrial case study, correctness cannot be
+measured directly, so we do \emph{not} report precision/recall/F1. Instead,
+\textbf{industrial verification} corroborates findings via:
+(i)~\emph{Cross-Architecture Agreement}---the fraction of an architecture's
+findings independently found by another architecture on the same PR (matched on
+file, line, category, and title similarity);
+(ii)~\emph{Static-Analysis Agreement}---the fraction coinciding with issues from
+conventional static-analysis tools;
+(iii)~\emph{LLM-Judge Validation}---the fraction a separate, impartial LLM
+classifies as valid given the diff;
+(iv)~\emph{Later-Fix Rate}---the fraction whose location is modified in later
+commits; and
+(v)~\emph{Evidence Score}, a supporting heuristic over severity, confidence, and
+finding volume that reflects review \emph{strength}, not correctness. Operational
+metrics (latency, tokens, cost, LLM calls, messages) are collected identically
+across all datasets.
+
+Formally, let $F$ be an architecture's validated findings on a PR and $A_x$ the
+findings of architecture $x$. Writing $m(f,S)=1$ when a finding $f$ matches some
+element of set $S$ (same file, a small line window, and matching category or
+title), the corroboration signals are
+\begin{align}
+\mathrm{CAA}_x &= \tfrac{1}{|A_x|}\!\sum_{f\in A_x}\!
+   \mathbb{1}\!\left[\exists\,y\neq x:\, m(f,A_y)\right], \label{eq:caa}\\
+\mathrm{SAA}   &= \tfrac{1}{|F|}\!\sum_{f\in F}\!
+   \mathbb{1}\!\left[m(f,S_{\mathrm{static}})\right], \\
+\mathrm{LJV}   &= \tfrac{1}{|F|}\bigl|\{f\in F:\mathrm{judge}(f)=\text{valid}\}\bigr|, \\
+\mathrm{LFR}   &= \tfrac{1}{|F|}\bigl|\{f\in F:\mathrm{loc}(f)\ \text{changed later}\}\bigr|,
+\end{align}
+where $S_{\mathrm{static}}$ is the set of static-analysis issues and
+$\mathrm{judge}(\cdot)$ is an independent LLM verdict. Each value lies in $[0,1]$
+and is reported only when computable---for example, cross-architecture agreement
+(\ref{eq:caa}) requires at least two architectures and a non-empty finding set.
+
+\begin{table}[t]
+\caption{Evaluation Metrics by Dataset}
+\label{tab:metrics}
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Metric} & \textbf{Qodo} & \textbf{SWE-PRBench} & \textbf{RAP Portal} \\
+\midrule
+Precision / Recall / F1        & \checkmark & $\circ$ & --- \\
+Localization Accuracy          & \checkmark & ---     & --- \\
+Human Review Agreement         & ---        & \checkmark & --- \\
+Cross-Architecture Agreement   & ---        & ---     & \checkmark \\
+Static-Analysis Agreement      & ---        & ---     & \checkmark \\
+LLM-Judge Validation           & ---        & ---     & \checkmark \\
+Later-Fix Rate                 & ---        & ---     & \checkmark \\
+Evidence Score (heuristic)     & ---        & ---     & \checkmark \\
+Latency / Cost / Tokens        & \checkmark & \checkmark & \checkmark \\
+LLM Calls / Message Count      & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\\[2pt]
+\raggedright
+\footnotesize \checkmark: reported; $\circ$: interpreted as human agreement;
+---: not applicable.
+\end{table}
+
+\subsection{System Implementation}
+The platform is organized as a set of independent stages connected by explicit
+data contracts, which keeps the experiment reproducible and makes each stage
+separately testable. \emph{Import} converts a PR into an immutable snapshot keyed
+by a content-derived identifier, so re-running an experiment reuses the exact same
+input. \emph{Review} invokes the architecture under test, which returns raw model
+output plus execution telemetry (latency, tokens, cost, LLM calls, messages).
+\emph{Validation} parses the raw output against a fixed schema and normalizes it
+into structured findings without inventing data, so malformed output degrades
+gracefully rather than corrupting metrics. \emph{Storage} persists raw and
+validated results and individual findings; \emph{evaluation} computes the metrics
+of Section~IV-D; and \emph{export} emits per-experiment and comparison rows as CSV
+and JSON for analysis.
+
+Two properties support internal validity. First, the evaluation engine is
+deterministic and side-effect free: it reads only stored artifacts and never calls
+the model, so metrics are reproducible from saved results. Second, the campaign
+runner maintains a manifest of every (PR, architecture, run) with status,
+attempts, and reproducibility metadata (model, prompt, and workflow versions),
+enabling resume-after-failure and auditing; a retry policy re-attempts only
+transient infrastructure errors, while validation and parsing errors are terminal.
+The industrial-verification signals are additive: they extend the research-evidence
+metrics without altering the benchmark correctness path, so the Qodo and
+SWE-PRBench pipelines are unaffected by the case-study methodology.
+
+\section{Proposed Experiments}
+\subsection{Campaign Design}
+The primary experiment is a full campaign in which every PR is reviewed by all
+three architectures over the shared snapshot. Because the pipeline reuses one
+import per PR, all architectures see byte-identical input, so any outcome
+difference is attributable to topology. Each run records reproducibility metadata
+(model version, prompt version, workflow version) and a deterministic manifest so
+runs can be resumed and audited; a retry policy re-attempts only transient
+infrastructure failures, while validation and parsing errors are terminal.
+
+\subsection{Datasets and Sample Sizes}
+The planned campaign targets 30--50 PRs from Qodo, 20--30 from SWE-PRBench, and
+10--20 from the industrial portal, each reviewed under all three architectures
+(e.g., 50 PRs $\times$ 3 architectures $=$ 150 experiments). PRs are stratified by
+type---frontend-only, backend-only, database-only, and cross-component---so that
+RQ3 can be tested against complexity. Benchmark defect categories include missing
+authorization checks, incorrect API contracts, frontend state bugs, query
+inefficiencies, missing validation, error-handling problems, and cross-component
+integration failures.
+
+\subsection{Procedure and Analysis}
+Each PR flows through import $\rightarrow$ review ($\times 3$) $\rightarrow$
+validation $\rightarrow$ storage $\rightarrow$ evaluation $\rightarrow$ export.
+Effectiveness is measured objectively on Qodo (precision, recall, F1,
+localization), as human agreement on SWE-PRBench, and by corroboration on the
+industrial portal. Efficiency is measured everywhere (latency, tokens, LLM calls,
+messages).
+
+Because the same three architectures review every PR, observations are paired,
+and we will compare architectures with paired non-parametric tests (Wilcoxon
+signed-rank for two-way contrasts, Friedman across all three) rather than assume
+normality, reporting effect sizes alongside $p$-values and correcting for multiple
+comparisons. To address RQ3 we stratify PRs by type (frontend-only, backend-only,
+database-only, cross-component) and test for an interaction between topology and
+complexity; H2 predicts that Consensus gains most on cross-component PRs. Cost is
+reported both in absolute terms and as a cost-per-true-positive ratio, so that any
+accuracy gain from richer coordination is weighed against its overhead. All
+prompts and the model are frozen across architectures to preserve internal
+validity, and every run stores its reproducibility metadata so the analysis can be
+regenerated from saved artifacts.
+
+\section{Results So Far}
+The platform is implemented end-to-end and validated against the live service:
+all three architectures run through the shared pipeline, the Qodo ground-truth
+evaluation and the campaign runner are complete, and industrial findings are pulled
+from real PRs with cross-architecture agreement and LLM-judge validation computed
+automatically. During bring-up we found and fixed a defect in which the multi-agent
+specialists returned no findings because their prompts omitted the expected
+structured-output contract; once corrected, both multi-agent architectures produce
+findings and recover seeded defects---evidence of the value of an observable
+pipeline for methodology validation.
+
+We report early, small-sample runs meant to validate the pipeline, not to draw
+conclusions; statistical analysis awaits the full campaign. The most robust signal
+is structural: communication overhead and latency grow sharply with topology
+richness (Table~\ref{tab:comm}), consistent with H1. On a minimal seeded-defect
+sample, all three architectures recovered the known defects (recall $=1.0$), while
+macro precision decreased as fan-out grew (Table~\ref{tab:quality}) because the
+multi-agent architectures surfaced more candidate findings, raising false
+positives on these small PRs. This is the accuracy/cost tension the full study
+must resolve: richer coordination need not improve precision, and can dilute it,
+even as it multiplies cost. These figures are illustrative only, given the very
+small current sample, and should not be read as final results.
+
+\begin{table}[t]
+\caption{Preliminary Benchmark Review Quality, Macro-Averaged Over the Current
+Small Sample (illustrative; not statistically significant)}
+\label{tab:quality}
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Architecture} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
+\midrule
+Agentless    & 0.38 & 1.00 & 0.53 \\
+Hierarchical & 0.20 & 1.00 & 0.33 \\
+Consensus    & 0.31 & 1.00 & 0.44 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Preliminary Communication and Cost per Architecture on a Representative
+Industrial PR (single review; illustrative)}
+\label{tab:comm}
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Architecture} & \textbf{LLM Calls} & \textbf{Messages} &
+\textbf{Latency} & \textbf{Cost} \\
+\midrule
+Agentless    & 1 & 1  & $\sim$4\,s   & \$0.006 \\
+Hierarchical & 3 & 8  & $\sim$55\,s  & \$0.052 \\
+Consensus    & 9 & 22 & $\sim$150\,s & \$0.146 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Next steps are to scale samples to the planned sizes, run the full campaign across
+all three datasets, complete the static-analysis and later-fix producers for the
+industrial case study, and analyze outcomes by architecture and PR type.
+
+\section{Threats to Validity}
+\textbf{Construct validity.} The industrial case study lacks authoritative ground
+truth, so our signals corroborate rather than prove correctness, and the LLM judge
+may share biases with the reviewer models. We mitigate this by triangulating four
+independent signals of different kinds (peer agreement, static analysis, an
+independent judge, and later fixes), by treating the Evidence Score only as a
+supporting heuristic, and by never reporting benchmark correctness for that
+dataset. On SWE-PRBench, matching metrics measure agreement with reviewers rather
+than absolute correctness, and we label them as such.
+
+\textbf{Internal validity.} Differences in outcome could stem from confounds other
+than topology. We hold the model, prompts, and specialist roles fixed and review a
+byte-identical immutable snapshot per PR across all three architectures, so
+topology is the only manipulated variable; the deterministic evaluation engine and
+stored reproducibility metadata let us regenerate every metric from saved results.
+
+\textbf{External validity.} Synthetic defects may not fully represent production
+defects, and a single primary industrial codebase limits generalizability. The
+three-dataset design partly offsets this by spanning injected defects, real human
+review, and a live repository; future work will add further repositories and
+multiple LLM families.
+
+\textbf{Conclusion validity.} The current sample is small and used only for
+pipeline validation, so the reported observations are not statistically
+significant. The full campaign uses the planned sample sizes and paired
+non-parametric tests with effect sizes and multiple-comparison correction before
+any claim is drawn.
+
+\section{Conclusion}
+This work-in-progress paper studies how multi-agent communication topology affects
+automated code review. We built a controlled, reproducible platform that evaluates
+Agentless, Hierarchical Authority, and Decentralized Peer Consensus under identical
+conditions across three complementary datasets, and introduced an industrial
+verification methodology for the realistic setting without authoritative ground
+truth. Preliminary runs show communication overhead and latency rising steeply from
+Agentless to Hierarchical to Consensus, framing the central accuracy/cost trade-off
+the full study will quantify. The expected contribution is practical guidance for
+designing LLM-based code-review systems that balance accuracy, cost, and
+coordination complexity.
+
+\begin{thebibliography}{00}
+\bibitem{chatdev} C. Qian \emph{et al.}, ``ChatDev: Communicative agents for
+software development,'' in \emph{Proc. ACL}, 2024.
+\bibitem{metagpt} S. Hong \emph{et al.}, ``MetaGPT: Meta programming for a
+multi-agent collaborative framework,'' in \emph{Proc. ICLR}, 2024.
+\bibitem{agentless} C. S. Xia, Y. Deng, S. Dunn, and L. Zhang, ``Agentless:
+Demystifying LLM-based software engineering agents,'' \emph{arXiv:2407.01489},
+2024.
+\bibitem{swebench} C. E. Jimenez \emph{et al.}, ``SWE-bench: Can language models
+resolve real-world GitHub issues?'' in \emph{Proc. ICLR}, 2024.
+\bibitem{survey} X. Zhang \emph{et al.}, ``LLM-based multi-agent systems for
+software engineering: Literature review, vision and the road ahead,''
+\emph{arXiv preprint}, 2024.
+\bibitem{failures} Y. Li \emph{et al.}, ``Why do multi-agent LLM systems fail?''
+\emph{arXiv preprint}, 2025.
+\bibitem{llmjudge} L. Zheng \emph{et al.}, ``Judging LLM-as-a-judge with MT-Bench
+and Chatbot Arena,'' in \emph{Proc. NeurIPS}, 2023.
+\end{thebibliography}
+
+\end{document}

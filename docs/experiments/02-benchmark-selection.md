@@ -73,20 +73,24 @@ Measured using:
 
 ---
 
-### E3 — Practical Deployment
+### E3 — Industrial Verification
 
-Can the architecture operate effectively on an actively developed industrial software project?
+Can the architecture produce credible review findings on an actively developed industrial software project in the absence of authoritative ground truth?
+
+Because the RAP Portal does not contain labeled defects, correctness cannot be measured using Precision or Recall. Instead, findings are corroborated using multiple independent verification signals.
 
 Measured using:
 
-- Evidence Score
+- Cross-Architecture Agreement
+- Static Analysis Agreement
+- LLM Judge Validation
+- Later Fix Rate
+- Evidence Score (supporting heuristic)
 - Cost
 - Latency
 - Token Usage
 - LLM Calls
 - Message Count
-
-This separation prevents over-interpreting a single benchmark and provides a more comprehensive evaluation of AI-assisted code review.
 
 ---
 
@@ -470,39 +474,80 @@ This improves the ecological validity of the research.
 
 ## Evaluation Metrics
 
-The RAP Portal is used to evaluate:
+Unlike the public benchmark datasets, the RAP Portal does not provide authoritative ground truth. Therefore, the industrial case study evaluates the credibility of review findings using multiple complementary verification signals.
 
-### Review Quality
+### Verification Metrics
 
-- Finding Count
-- Confidence
-- Evidence Score
+#### Cross-Architecture Agreement
+
+Each pull request is reviewed independently by:
+
+- Agentless
+- Hierarchical
+- Consensus
+
+Findings independently identified by multiple architectures are considered more credible than findings produced by a single architecture.
+
+Agreement is calculated by matching findings based on:
+
+- file
+- line
+- category
+- title similarity
+
+The percentage of corroborated findings is reported as the **Architecture Agreement** metric.
+
+---
+
+#### Static Analysis Agreement
+
+Each pull request is also analysed using conventional static analysis tools appropriate to the project's technology stack (for example linters, type checkers, and security or SAST scanners).
+
+Findings that coincide with issues independently reported by an established static analysis tool are considered more credible.
+
+Static analysis provides an automated, reproducible external reference that does not depend on the availability of human review comments. Matching is based on file, line, and rule or category correspondence.
+
+The proportion of AI findings corroborated by static analysis is reported as the **Static Analysis Agreement** metric.
+
+Because static analysis tools have their own false positives and coverage limitations, this signal is treated as corroboration rather than authoritative ground truth.
 
 ---
 
-### Operational Performance
+#### LLM Judge Validation
 
-- Latency
-- Input Tokens
-- Output Tokens
-- Estimated Cost
+Each AI-generated finding is independently assessed by a separate LLM acting as an impartial judge, distinct from the review architectures that produced the finding.
+
+Given the pull request diff and the finding, the judge classifies each finding as:
+
+- Valid
+- Invalid
+- Uncertain
+
+This provides scalable automated adjudication in place of scarce human review effort. The proportion of findings classified as valid is reported as the **LLM Judge Validation** metric.
+
+Because an LLM judge can share biases with the reviewer models, it is treated as a supporting corroboration signal rather than authoritative ground truth.
+
+---
+
+#### Later Fix Rate
+
+For merged pull requests, the subsequent Git history is analysed to determine whether code associated with an AI finding was modified or corrected in later commits.
+
+Although subsequent modification does not prove the AI finding was correct, it provides additional external evidence supporting the relevance of the reported issue.
 
 ---
 
-### Communication Cost
+#### Evidence Score
 
-- LLM Calls
-- Message Count
+The platform also reports the existing Evidence Score.
 
----
+Evidence Score is a heuristic confidence metric derived from:
 
-### Architecture Behaviour
+- severity
+- model confidence
+- finding volume
 
-- Architecture Agreement
-- Duplicate Findings
-- Merge Effectiveness
-
----
+It represents the strength of the AI review rather than objective correctness and should therefore be interpreted only as a supporting indicator.
 
 ## Not Used For
 
@@ -761,21 +806,53 @@ This isolates the effect of communication topology on review performance.
 
 # 12. Metrics by Dataset
 
-| Metric | Qodo | SWE-PRBench | RAP Portal |
-|----------|:----:|:-----------:|:----------:|
+The three evaluation datasets serve different research purposes and therefore support different evaluation metrics.
+
+Public benchmark datasets provide objective or human-referenced evaluation, while the RAP Portal industrial case study focuses on corroborating AI-generated findings through independent verification signals rather than authoritative ground truth.
+
+| Metric | Qodo PR-Review-Bench | SWE-PRBench | RAP Portal |
+|---------|:--------------------:|:-----------:|:----------:|
 | Precision | ✅ | ◐ | ❌ |
 | Recall | ✅ | ◐ | ❌ |
 | F1 Score | ✅ | ◐ | ❌ |
 | Localization Accuracy | ✅ | ❌ | ❌ |
-| Human Agreement | ❌ | ✅ | ❌ |
-| Evidence Score | ❌ | ❌ | ✅ |
+| Human Review Agreement | ❌ | ✅ | ❌ |
+| Cross-Architecture Agreement | ❌ | ❌ | ✅ |
+| Static Analysis Agreement | ❌ | ❌ | ✅ |
+| LLM Judge Validation | ❌ | ❌ | ✅ |
+| Later Fix Rate | ❌ | ❌ | ✅ |
+| Evidence Score (Supporting Heuristic) | ❌ | ❌ | ✅ |
 | Finding Count | ✅ | ✅ | ✅ |
-| Cost | ✅ | ✅ | ✅ |
+| Estimated Cost | ✅ | ✅ | ✅ |
 | Latency | ✅ | ✅ | ✅ |
+| Input Tokens | ✅ | ✅ | ✅ |
+| Output Tokens | ✅ | ✅ | ✅ |
 | LLM Calls | ✅ | ✅ | ✅ |
 | Message Count | ✅ | ✅ | ✅ |
 
----
+**Legend**
+
+- **✅** Primary evaluation metric for the dataset.
+- **◐** Approximate metric interpreted as reviewer agreement rather than objective correctness.
+- **❌** Not applicable or not reported.
+
+### Interpretation
+
+The metrics collected from each dataset should be interpreted according to the type of evidence they provide.
+
+**Qodo PR-Review-Bench** provides authoritative ground truth through injected review issues and therefore supports objective correctness metrics such as Precision, Recall, F1 Score, and Localization Accuracy.
+
+**SWE-PRBench** contains real human review comments rather than objectively labeled defects. Metrics such as Precision, Recall, and F1 therefore measure agreement with experienced human reviewers instead of absolute correctness.
+
+**RAP Portal** is an industrial case study without authoritative ground truth. Consequently, correctness metrics are intentionally not reported. Instead, review credibility is evaluated using multiple independent verification signals:
+
+- **Cross-Architecture Agreement** measures whether multiple review architectures independently identify the same issue.
+- **Static Analysis Agreement** measures whether AI-generated findings coincide with issues independently reported by conventional static analysis tools run on the same pull request.
+- **LLM Judge Validation** measures the proportion of AI findings judged valid by a separate, impartial LLM given the pull request diff.
+- **Later Fix Rate** measures whether code associated with an AI finding is subsequently modified or corrected in later commits.
+- **Evidence Score** is retained as a supporting heuristic that reflects the strength of an AI review based on severity, confidence, and finding volume, but it is **not interpreted as a measure of correctness**.
+
+Operational metrics—including cost, latency, token usage, LLM calls, and message count—are collected consistently across all datasets to enable fair comparison of computational efficiency between review architectures.
 
 # 13. Sample Size Justification
 
@@ -870,9 +947,10 @@ These datasets are outside the scope of the current thesis.
 
 # 18. Summary
 
-This research deliberately combines multiple complementary datasets to evaluate AI-assisted code review from different perspectives.
+This research deliberately combines complementary evaluation methodologies.
 
-Qodo PR-Review-Bench provides objective correctness through injected defects and explicit ground truth, SWE-PRBench evaluates agreement with experienced human reviewers, and the RAP Portal demonstrates the applicability of the proposed research platform on a real industrial software project. Together, these datasets enable rigorous evaluation of review correctness, communication efficiency, computational cost, and practical usability while ensuring that the review architecture remains the only independent variable throughout the experimental campaign.
+Qodo PR-Review-Bench provides objective correctness through labeled review defects. SWE-PRBench evaluates agreement with experienced human reviewers using real pull request discussions. The RAP Portal extends the evaluation into an industrial environment where authoritative ground truth is unavailable and human review comments are scarce. Instead of measuring correctness directly, the industrial case study corroborates AI findings through automated, reproducible verification signals — cross-architecture agreement, agreement with conventional static analysis tools, independent LLM-judge validation, and subsequent code modifications — with the Evidence Score retained only as a supporting heuristic. Together, these datasets provide a comprehensive evaluation framework that measures correctness, reviewer agreement, operational efficiency, and industrial applicability while ensuring that review architecture remains the only independent variable throughout the experimental campaign.
+
 
 ---
 
