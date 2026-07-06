@@ -26,13 +26,15 @@ export interface ModelPricing {
 /**
  * Default Bedrock model id. Overridable via `LLM_DEFAULT_MODEL`.
  *
- * This is a cross-region **inference profile** id (verified working in
- * us-east-1). Newer Claude Sonnet models are only invokable via a profile, not
- * a bare on-demand model id. Switch to another approved Sonnet (e.g.
- * `us.anthropic.claude-sonnet-4-6` or `us.anthropic.claude-sonnet-5`) via
- * `LLM_DEFAULT_MODEL`.
+ * This is a cross-region **inference profile** id (the `us.` prefix). Newer
+ * Claude models are only invokable via a profile, not a bare on-demand model id.
+ *
+ * Defaults to **Claude Haiku 4.5** — ~3x cheaper than Sonnet 4.5 ($1/$5 vs
+ * $3/$15 per MTok) — to keep experiment runs inexpensive. Switch to a more
+ * capable model (e.g. `us.anthropic.claude-sonnet-4-5-20250929-v1:0` or
+ * `us.anthropic.claude-sonnet-5`) via `LLM_DEFAULT_MODEL` when a run needs it.
  */
-const DEFAULT_MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0";
+const DEFAULT_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 function numberFromEnv(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -57,11 +59,22 @@ export const LLM_CONFIG: LLMConfig = {
  * research cost-tracking, not billing — confirm current Bedrock pricing before
  * relying on cost metrics. Unknown models estimate `0`.
  *
- * Claude Sonnet 4.x list price is $3 / MTok input and $15 / MTok output for the
- * standard (≤200K) context tier. Cross-region inference profiles share the
- * underlying model's price, so `us.`/`global.` variants are keyed separately.
+ * Claude Haiku 4.5 list price is $1 / MTok input and $5 / MTok output; Claude
+ * Sonnet 4.x is $3 / MTok input and $15 / MTok output — both for the standard
+ * (≤200K) context tier. Cross-region inference profiles share the underlying
+ * model's price, so `us.`/`global.` variants are keyed separately.
  */
 export const LLM_PRICING: Record<string, ModelPricing> = {
+  // Claude Haiku 4.5 — the default model (cheapest).
+  "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
+    inputPer1kUsd: 0.001,
+    outputPer1kUsd: 0.005,
+  },
+  "global.anthropic.claude-haiku-4-5-20251001-v1:0": {
+    inputPer1kUsd: 0.001,
+    outputPer1kUsd: 0.005,
+  },
+  // Claude Sonnet 4.5 — kept for runs that override back to a stronger model.
   "us.anthropic.claude-sonnet-4-5-20250929-v1:0": {
     inputPer1kUsd: 0.003,
     outputPer1kUsd: 0.015,
