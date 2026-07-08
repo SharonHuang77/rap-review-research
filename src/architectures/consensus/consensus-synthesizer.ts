@@ -133,6 +133,7 @@ export class ConsensusSynthesizer {
     }
 
     const decisive = accepted + rejected;
+    const selfVote = selfVoteStats(input.candidates, input.votes);
     const consensusMetrics: ConsensusMetrics = {
       specialistCount: input.specialistCount,
       candidateFindingCount: input.candidates.length,
@@ -141,6 +142,9 @@ export class ConsensusSynthesizer {
       needsReviewFindingCount: needsReview,
       voteCount: input.votes.length,
       agreementRate: input.candidates.length === 0 ? 0 : decisive / input.candidates.length,
+      selfVoteCount: selfVote.selfVoteCount,
+      selfAcceptRate: selfVote.selfAcceptRate,
+      otherAcceptRate: selfVote.otherAcceptRate,
       revisionCount: input.revisedResults.length,
       duplicateCount: input.duplicateCount,
       llmCalls: input.llmCalls,
@@ -222,6 +226,44 @@ function clamp01(value: number): number {
     return 0;
   }
   return Math.max(0, Math.min(1, value));
+}
+
+/**
+ * Self-preference stats: a vote is a "self vote" when its reviewer is among the
+ * roles that proposed the candidate. Returns the self-vote count and the accept
+ * rate among self votes vs. among other votes. Rates are 0 when the respective
+ * group is empty.
+ */
+function selfVoteStats(
+  candidates: CandidateFinding[],
+  votes: ReviewVote[],
+): { selfVoteCount: number; selfAcceptRate: number; otherAcceptRate: number } {
+  const proposersByCandidate = new Map<string, ReadonlySet<AgentRole>>(
+    candidates.map((c) => [c.candidateId, new Set(c.proposedBy)]),
+  );
+
+  let selfVotes = 0;
+  let selfAccepts = 0;
+  let otherVotes = 0;
+  let otherAccepts = 0;
+  for (const vote of votes) {
+    const proposers = proposersByCandidate.get(vote.findingId);
+    const isSelf = proposers?.has(vote.reviewer) ?? false;
+    const isAccept = vote.vote === "accept";
+    if (isSelf) {
+      selfVotes += 1;
+      if (isAccept) selfAccepts += 1;
+    } else {
+      otherVotes += 1;
+      if (isAccept) otherAccepts += 1;
+    }
+  }
+
+  return {
+    selfVoteCount: selfVotes,
+    selfAcceptRate: selfVotes === 0 ? 0 : selfAccepts / selfVotes,
+    otherAcceptRate: otherVotes === 0 ? 0 : otherAccepts / otherVotes,
+  };
 }
 
 function decide(

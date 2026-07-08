@@ -123,6 +123,23 @@ test("majority reject → rejected (not emitted as a final finding)", () => {
   assert.equal(result.consensusMetrics.rejectedFindingCount, 1);
 });
 
+test("self-vote stats separate a proposer's own votes from peers' (B4)", () => {
+  const candidate: CandidateFinding = {
+    candidateId: "candidate-1", sourceFindingIds: ["b1"], title: "Bug", severity: "high",
+    category: "security", file: "a.ts", line: 10, description: "d", recommendation: "r", proposedBy: ["backend"],
+  };
+  const result = synth.synthesize(
+    baseInput([candidate], [
+      vote("candidate-1", "backend", "accept"), // self vote, accept
+      vote("candidate-1", "frontend", "accept"), // other, accept
+      vote("candidate-1", "database", "reject"), // other, reject
+    ]),
+  );
+  assert.equal(result.consensusMetrics.selfVoteCount, 1);
+  assert.equal(result.consensusMetrics.selfAcceptRate, 1); // 1/1 self accepts
+  assert.equal(result.consensusMetrics.otherAcceptRate, 0.5); // 1/2 peer accepts
+});
+
 test("no majority → needs-review", () => {
   const candidate: CandidateFinding = {
     candidateId: "candidate-1", sourceFindingIds: ["b1"], title: "Bug", severity: "medium",

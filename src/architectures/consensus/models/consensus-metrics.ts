@@ -11,6 +11,13 @@ export interface ConsensusMetrics {
   readonly needsReviewFindingCount: number;
   readonly voteCount: number;
   readonly agreementRate: number;
+  // Self-preference instrumentation (B4): a "self vote" is a specialist voting
+  // on a candidate it proposed. If self-accept rate >> other-accept rate, the
+  // 2-of-3 majority is partly a specialist ratifying its own findings rather
+  // than independent peer review.
+  readonly selfVoteCount: number;
+  readonly selfAcceptRate: number;
+  readonly otherAcceptRate: number;
   readonly revisionCount: number;
   readonly duplicateCount: number;
   readonly llmCalls: number;
