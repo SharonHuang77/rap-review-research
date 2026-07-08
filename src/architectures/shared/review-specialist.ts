@@ -169,6 +169,7 @@ export function toReviewFinding(
     category: f.category.toLowerCase(),
     file: f.file,
     line: f.line,
+    ...(typeof f.snippet === "string" ? { snippet: f.snippet } : {}),
     description: f.description,
     recommendation: f.recommendation,
     confidence: Math.max(0, Math.min(1, f.confidence)),
