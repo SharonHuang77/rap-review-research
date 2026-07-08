@@ -4,6 +4,7 @@ import type { BenchmarkRun } from "./models/benchmark-run.ts";
 import type { BenchmarkResult } from "./models/benchmark-result.ts";
 
 import { IssueMatcher } from "./matching/issue-matcher.ts";
+import { maxBipartiteMatching } from "./matching/bipartite-matcher.ts";
 
 export interface GroundTruthEvaluatorDependencies {
   /** The matcher deciding produced-finding ↔ ground-truth correspondence. */
@@ -15,9 +16,10 @@ export interface GroundTruthEvaluatorDependencies {
  * {@link BenchmarkResult}: precision, recall, F1, localization accuracy, and the
  * true/false positive/negative counts.
  *
- * Deterministic and pure — no I/O, no LLM. Matching is a greedy one-to-one
+ * Deterministic and pure — no I/O, no LLM. Matching is a maximum one-to-one
  * assignment (each finding matches at most one issue and vice-versa) so a single
- * finding cannot inflate the true-positive count.
+ * finding cannot inflate the true-positive count, and the counts do not depend
+ * on the order in which findings are produced.
  */
 export class GroundTruthEvaluator {
   private readonly matcher: IssueMatcher;
@@ -33,13 +35,15 @@ export class GroundTruthEvaluator {
     const groundTruthCount = groundTruth.length;
 
     // True positives: strict match (file + line overlap, per matcher config).
-    const truePositives = this.greedyMatchCount(
+    const truePositives = this.maxMatchCount(
       produced,
       groundTruth,
       (f, g) => this.matcher.match(f, g).matched,
     );
     // Detected: file-level match only — the denominator for localization.
-    const detected = this.greedyMatchCount(
+    // `fileMatch` is a superset of `matched`, so detected >= truePositives and
+    // localizationAccuracy stays in [0, 1].
+    const detected = this.maxMatchCount(
       produced,
       groundTruth,
       (f, g) => this.matcher.match(f, g).fileMatch,
@@ -76,26 +80,24 @@ export class GroundTruthEvaluator {
   }
 
   /**
-   * Greedy one-to-one match count: iterate findings in order and pair each with
-   * the first not-yet-paired ground-truth issue it satisfies `predicate` for.
-   * Returns the number of paired issues (equals the number of paired findings).
+   * Maximum one-to-one match count between findings and ground-truth issues
+   * under `predicate`. Uses maximum bipartite matching so the count is the true
+   * optimum (a greedy first-fit can under-count when one finding could satisfy
+   * several issues) and is invariant to the ordering of the findings.
    */
-  private greedyMatchCount(
+  private maxMatchCount(
     findings: ReviewFinding[],
     groundTruth: GroundTruthIssue[],
     predicate: (finding: ReviewFinding, issue: GroundTruthIssue) => boolean,
   ): number {
-    const usedIssue = new Array<boolean>(groundTruth.length).fill(false);
-    let pairs = 0;
-    for (const finding of findings) {
-      for (let g = 0; g < groundTruth.length; g += 1) {
-        if (!usedIssue[g] && predicate(finding, groundTruth[g] as GroundTruthIssue)) {
-          usedIssue[g] = true;
-          pairs += 1;
-          break;
-        }
-      }
-    }
-    return pairs;
+    return maxBipartiteMatching(
+      findings.length,
+      groundTruth.length,
+      (f, g) =>
+        predicate(
+          findings[f] as ReviewFinding,
+          groundTruth[g] as GroundTruthIssue,
+        ),
+    );
   }
 }

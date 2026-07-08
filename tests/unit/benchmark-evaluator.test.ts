@@ -89,6 +89,40 @@ test("no produced findings yields zero precision/recall and all false negatives"
   assert.equal(result.localizationAccuracy, 0);
 });
 
+test("true-positive count is invariant to the order of findings (A1)", () => {
+  // Two issues on different lines; three findings (two collide on g1, one hits
+  // g2). The TP count must be the same whatever order the findings arrive in.
+  const gt: GroundTruthIssue[] = [
+    { id: "g1", file: "src/a.ts", lineStart: 10, lineEnd: 10 },
+    { id: "g2", file: "src/a.ts", lineStart: 20, lineEnd: 20 },
+  ];
+  const findings = [
+    finding("src/a.ts", 10), // g1
+    finding("src/a.ts", 10), // g1 (collision)
+    finding("src/a.ts", 20), // g2
+  ];
+  const forward = new GroundTruthEvaluator().evaluate(run(findings, gt));
+  const reversed = new GroundTruthEvaluator().evaluate(
+    run([...findings].reverse(), gt),
+  );
+  assert.equal(forward.truePositives, reversed.truePositives);
+  assert.equal(forward.truePositives, 2); // g1 and g2 both matched
+});
+
+test("maximum matching beats greedy first-fit (A1)", () => {
+  // g1 spans lines 10-20; g2 spans 10-12. A finding at line 11 matches BOTH;
+  // a finding at line 20 matches only g1. Greedy that pairs the line-11 finding
+  // with g1 first would strand the line-20 finding (g1 taken) → 1 TP.
+  // Maximum matching pairs line-20↔g1 and line-11↔g2 → 2 TP.
+  const gt: GroundTruthIssue[] = [
+    { id: "g1", file: "src/a.ts", lineStart: 10, lineEnd: 20 },
+    { id: "g2", file: "src/a.ts", lineStart: 10, lineEnd: 12 },
+  ];
+  const findings = [finding("src/a.ts", 11), finding("src/a.ts", 20)];
+  const result = new GroundTruthEvaluator().evaluate(run(findings, gt));
+  assert.equal(result.truePositives, 2);
+});
+
 test("a single finding cannot double-count against two issues", () => {
   // Two ground-truth issues in the same overlapping span; one finding.
   const overlapping: GroundTruthIssue[] = [
