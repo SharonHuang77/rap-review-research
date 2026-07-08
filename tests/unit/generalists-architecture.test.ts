@@ -88,6 +88,40 @@ test("counts truncated samples (C1 + B2)", async () => {
   assert.equal(raw.truncatedCallCount, 1);
 });
 
+test("sampleCount 1 is the degenerate single-sample case (C1)", async () => {
+  const rawDiffStorage = new InMemoryRawDiffStorage();
+  const responder = (_r: LLMReviewRequest) => ({
+    text: review([finding("a.ts", 10, "Bug X")]),
+    latencyMs: 15,
+  });
+  const arch = new GeneralistsArchitecture({
+    provider: new MockProvider({ responder }),
+    promptBuilder: promptBuilder(),
+    rawDiffStorage,
+    sampleCount: 1,
+  });
+
+  const raw = await arch.execute(await input(rawDiffStorage));
+
+  assert.equal(raw.llmCalls, 1);
+  assert.equal(raw.messageCount, 1);
+  assert.equal(raw.criticalPathLatencyMs, raw.latencyMs);
+});
+
+test("all-empty samples yield no findings without throwing (C1)", async () => {
+  const rawDiffStorage = new InMemoryRawDiffStorage();
+  const responder = (_r: LLMReviewRequest) => ({ text: review([]) });
+  const arch = new GeneralistsArchitecture({
+    provider: new MockProvider({ responder }),
+    promptBuilder: promptBuilder(),
+    rawDiffStorage,
+  });
+
+  const raw = await arch.execute(await input(rawDiffStorage));
+
+  assert.equal((raw.findings as ReviewFinding[]).length, 0);
+});
+
 test("registry resolves the generalists-3 name (C1)", async () => {
   const rawDiffStorage = new InMemoryRawDiffStorage();
   const registry = new InMemoryArchitectureRegistry();

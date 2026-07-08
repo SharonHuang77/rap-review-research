@@ -101,6 +101,9 @@ export class GeneralistsArchitecture implements IReviewArchitecture {
     });
 
     const merged = this.synthesizer.synthesize(samples);
+    // `merged.managerSummary` is intentionally ignored: it lists specialist
+    // roles (hierarchical wording). A generalists-specific summary is
+    // recomputed in `toRawReviewResult`.
     return toRawReviewResult(merged.mergedFindings, merged.duplicateCount, samples);
   }
 }
@@ -129,7 +132,10 @@ function toRawReviewResult(
     inputTokens: sum((s) => s.inputTokens),
     outputTokens: sum((s) => s.outputTokens),
     latencyMs: sum((s) => s.latencyMs),
-    // One parallel round: the critical path is the slowest sample.
+    // One parallel round: the critical path is the slowest sample. The
+    // deterministic `Synthesizer.synthesize` merge cost is intentionally not
+    // timed here (considered negligible), unlike hierarchical which folds in
+    // `mergeLatencyMs` — the omission is deliberate, not a copy oversight.
     criticalPathLatencyMs: samples.reduce((m, s) => Math.max(m, s.latencyMs), 0),
     truncatedCallCount: samples.filter((s) => s.truncated).length,
     estimatedCostUsd: sum((s) => s.estimatedCostUsd),
