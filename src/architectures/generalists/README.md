@@ -22,6 +22,16 @@ temperature 0. Identical-prompt sampling at temperature 0 would be degenerate
 self-consistency. `sampleTemperature` is frozen alongside the prompts and must
 be reported in the results.
 
+## Threat to validity — latency measurement
+
+`criticalPathLatencyMs` here is `max(sample latency)` only; the deterministic
+`Synthesizer` merge is not timed (it is sub-millisecond in-process work). This
+matches the Consensus arm, but note that Hierarchical folds its `mergeLatencyMs`
+into its own critical path — so the generalists-3 ↔ hierarchical latency
+comparison has a small, empirically negligible methodology asymmetry. Prefer
+comparing the arms on the LLM-bound metrics (`latencyMs`, tokens, cost) rather
+than on sub-millisecond merge overhead.
+
 ## Usage
 
 `registry.register(createGeneralistsArchitecture({ provider, promptBuilder, rawDiffStorage }))`
