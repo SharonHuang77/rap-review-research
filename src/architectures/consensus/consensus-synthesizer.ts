@@ -10,6 +10,8 @@ import type {
 import type { ConsensusReviewResult } from "./models/consensus-review-result.ts";
 import type { ConsensusMetrics } from "./models/consensus-metrics.ts";
 
+import { areDuplicateFindings } from "../shared/finding-dedup.ts";
+
 const SEVERITY_ORDER: Record<SeverityLevel, number> = {
   low: 0,
   medium: 1,
@@ -44,27 +46,29 @@ export interface SynthesizeInput {
  */
 export class ConsensusSynthesizer {
   /**
-   * Deduplicate Round-1 + revised findings into candidates (file+line+title).
-   * Highest severity/confidence wins; source ids and proposing roles accumulate.
+   * Deduplicate Round-1 + revised findings into candidates by near-duplicate
+   * matching (same file, nearby line, similar title — see
+   * {@link areDuplicateFindings}). Highest severity/confidence wins; source ids
+   * and proposing roles accumulate. Candidates keep discovery order so ids are
+   * stable.
    */
   public generateCandidates(
     independentResults: SpecialistReviewResult[],
     revisedResults: SpecialistReviewResult[],
   ): { candidates: CandidateFinding[]; duplicateCount: number } {
-    const byKey = new Map<string, CandidateAccumulator>();
-    const order: string[] = [];
+    const accumulators: CandidateAccumulator[] = [];
     let total = 0;
 
     const consume = (result: SpecialistReviewResult): void => {
       for (const finding of result.findings) {
         total += 1;
-        const key = duplicateKey(finding);
-        const existing = byKey.get(key);
-        if (!existing) {
-          order.push(key);
-          byKey.set(key, {
+        const index = accumulators.findIndex((acc) =>
+          areDuplicateFindings(acc.candidate, finding),
+        );
+        if (index === -1) {
+          accumulators.push({
             candidate: {
-              candidateId: `candidate-${order.length}`,
+              candidateId: `candidate-${accumulators.length + 1}`,
               sourceFindingIds: [finding.id],
               title: finding.title,
               severity: finding.severity,
@@ -78,7 +82,11 @@ export class ConsensusSynthesizer {
             confidence: finding.confidence,
           });
         } else {
-          byKey.set(key, mergeInto(existing, finding, result.role));
+          accumulators[index] = mergeInto(
+            accumulators[index] as CandidateAccumulator,
+            finding,
+            result.role,
+          );
         }
       }
     };
@@ -90,13 +98,7 @@ export class ConsensusSynthesizer {
       consume(result);
     }
 
-    const candidates = order.map((key) => {
-      const acc = byKey.get(key);
-      if (!acc) {
-        throw new Error(`missing candidate for key ${key}`);
-      }
-      return acc.candidate;
-    });
+    const candidates = accumulators.map((acc) => acc.candidate);
     return { candidates, duplicateCount: total - candidates.length };
   }
 
@@ -163,10 +165,6 @@ export class ConsensusSynthesizer {
       consensusMetrics,
     };
   }
-}
-
-function duplicateKey(finding: ReviewFinding): string {
-  return `${finding.file}|${finding.line}|${finding.title.trim().toLowerCase()}`;
 }
 
 function mergeInto(
