@@ -23,12 +23,21 @@ export interface BenchmarkResult {
 
   readonly groundTruthCount: number;
   readonly producedCount: number;
+  /**
+   * Produced findings after collapsing near-duplicates (same file, nearby line,
+   * similar title — the A4 predicate). An architecture with a dedup stage
+   * (hierarchical/consensus) and one without (agentless) are put on equal
+   * footing here, so `uniquePrecision` is not a pipeline artifact.
+   */
+  readonly uniqueProducedCount: number;
 
   readonly truePositives: number;
   readonly falsePositives: number;
   readonly falseNegatives: number;
 
   readonly precision: number;
+  /** Precision over unique (deduplicated) produced findings. */
+  readonly uniquePrecision: number;
   readonly recall: number;
   readonly f1: number;
   readonly localizationAccuracy: number;

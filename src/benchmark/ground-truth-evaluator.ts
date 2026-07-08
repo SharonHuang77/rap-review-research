@@ -5,6 +5,7 @@ import type { BenchmarkResult } from "./models/benchmark-result.ts";
 
 import { IssueMatcher } from "./matching/issue-matcher.ts";
 import { maxBipartiteMatching } from "./matching/bipartite-matcher.ts";
+import { areDuplicateFindings } from "../architectures/shared/finding-dedup.ts";
 
 export interface GroundTruthEvaluatorDependencies {
   /** The matcher deciding produced-finding ↔ ground-truth correspondence. */
@@ -60,6 +61,24 @@ export class GroundTruthEvaluator {
         : 0;
     const localizationAccuracy = detected > 0 ? truePositives / detected : 0;
 
+    // Unique-issue precision: collapse near-duplicate produced findings so a
+    // cluster of paraphrases counts once, then re-match. Puts an architecture
+    // with a dedup stage and one without on equal footing. Matching on the
+    // clustered representatives keeps uniquePrecision in [0, 1].
+    const uniqueRepresentatives = this.clusterRepresentatives(produced);
+    const uniqueProducedCount = uniqueRepresentatives.length;
+    const uniqueTruePositives = maxBipartiteMatching(
+      uniqueProducedCount,
+      groundTruthCount,
+      (f, g) =>
+        this.matcher.match(
+          uniqueRepresentatives[f] as ReviewFinding,
+          groundTruth[g] as GroundTruthIssue,
+        ).matched,
+    );
+    const uniquePrecision =
+      uniqueProducedCount > 0 ? uniqueTruePositives / uniqueProducedCount : 0;
+
     return {
       runId: run.runId,
       datasetId: run.datasetId,
@@ -69,14 +88,35 @@ export class GroundTruthEvaluator {
       architecture: run.architecture,
       groundTruthCount,
       producedCount,
+      uniqueProducedCount,
       truePositives,
       falsePositives,
       falseNegatives,
       precision,
+      uniquePrecision,
       recall,
       f1,
       localizationAccuracy,
     };
+  }
+
+  /**
+   * Collapse near-duplicate produced findings into cluster representatives using
+   * the same predicate as the synthesizers (A4). Each finding joins the first
+   * existing cluster it duplicates, otherwise starts a new one; the first member
+   * (discovery order) represents the cluster. Deterministic.
+   */
+  private clusterRepresentatives(findings: ReviewFinding[]): ReviewFinding[] {
+    const representatives: ReviewFinding[] = [];
+    for (const finding of findings) {
+      const isDuplicate = representatives.some((rep) =>
+        areDuplicateFindings(rep, finding),
+      );
+      if (!isDuplicate) {
+        representatives.push(finding);
+      }
+    }
+    return representatives;
   }
 
   /**

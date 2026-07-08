@@ -22,6 +22,10 @@ function finding(file: string, line: number): ReviewFinding {
   };
 }
 
+function finding2(file: string, line: number, title: string): ReviewFinding {
+  return { ...finding(file, line), id: `${file}:${line}:${title}`, title };
+}
+
 function run(
   producedFindings: ReviewFinding[],
   groundTruth: GroundTruthIssue[],
@@ -134,6 +138,29 @@ test("a single finding cannot double-count against two issues", () => {
   );
   assert.equal(result.truePositives, 1); // greedy one-to-one
   assert.equal(result.falseNegatives, 1);
+});
+
+test("duplicate findings drop raw precision but not unique precision or recall (A5)", () => {
+  // One real issue (g1) found once, plus two extra near-duplicate reports of
+  // the same true finding. Raw precision counts each duplicate as its own FP;
+  // unique precision collapses them; recall is unaffected.
+  const dupTitle = "Null dereference in handler";
+  const findings = [
+    finding2("src/a.ts", 10, dupTitle),
+    finding2("src/a.ts", 10, dupTitle),
+    finding2("src/a.ts", 11, "Null dereference in the handler"),
+  ];
+  const gt: GroundTruthIssue[] = [
+    { id: "g1", file: "src/a.ts", lineStart: 10, lineEnd: 12 },
+  ];
+  const result = new GroundTruthEvaluator().evaluate(run(findings, gt));
+
+  assert.equal(result.producedCount, 3);
+  assert.equal(result.uniqueProducedCount, 1); // all three collapse
+  assert.equal(result.truePositives, 1);
+  assert.equal(round(result.precision), 0.3333); // 1/3 raw
+  assert.equal(result.uniquePrecision, 1); // 1/1 deduped
+  assert.equal(result.recall, 1); // g1 still found
 });
 
 test("BenchmarkEvaluator macro-summarizes results per architecture", () => {
