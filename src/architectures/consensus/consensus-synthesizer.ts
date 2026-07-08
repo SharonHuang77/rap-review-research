@@ -191,18 +191,37 @@ function mergeInto(
 
 function candidateConfidence(input: SynthesizeInput): Map<string, number> {
   const map = new Map<string, number>();
-  // Confidence of an accepted finding = mean confidence of its "accept" votes.
+  // Confidence of an accepted finding = net support across its votes:
+  // (sum of accept confidences - sum of reject confidences) / decisive votes.
+  // Reject votes now drag confidence down instead of being ignored, so a
+  // 2-accept/1-strong-reject finding is no longer as confident as 3-accept.
+  // "revise" abstains from the accept/reject axis and is excluded from both.
+  // Reduces to the old mean-of-accepts when there are no reject votes.
   for (const candidate of input.candidates) {
-    const acceptVotes = input.votes.filter(
-      (v) => v.findingId === candidate.candidateId && v.vote === "accept",
+    const votes = input.votes.filter(
+      (v) => v.findingId === candidate.candidateId,
     );
-    const mean =
-      acceptVotes.length === 0
-        ? 0
-        : acceptVotes.reduce((sum, v) => sum + v.confidence, 0) / acceptVotes.length;
-    map.set(candidate.candidateId, mean);
+    let net = 0;
+    let decisive = 0;
+    for (const vote of votes) {
+      if (vote.vote === "accept") {
+        net += vote.confidence;
+        decisive += 1;
+      } else if (vote.vote === "reject") {
+        net -= vote.confidence;
+        decisive += 1;
+      }
+    }
+    map.set(candidate.candidateId, decisive === 0 ? 0 : clamp01(net / decisive));
   }
   return map;
+}
+
+function clamp01(value: number): number {
+  if (Number.isNaN(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
 }
 
 function decide(
