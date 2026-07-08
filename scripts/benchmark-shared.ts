@@ -18,6 +18,7 @@ import { InMemoryArchitectureRegistry } from "../src/architectures/in-memory-arc
 import { AgentlessArchitecture } from "../src/architectures/agentless/agentless-architecture.ts";
 import { createHierarchicalArchitecture } from "../src/architectures/hierarchical/index.ts";
 import { createConsensusArchitecture } from "../src/architectures/consensus/index.ts";
+import { createGeneralistsArchitecture } from "../src/architectures/generalists/index.ts";
 import { PromptBuilder } from "../src/llm/prompts/prompt-builder.ts";
 import { PromptLoader } from "../src/llm/prompts/prompt-loader.ts";
 import { ContextBuilder } from "../src/llm/prompts/context-builder.ts";
@@ -129,6 +130,9 @@ export function buildBenchmarkPipeline() {
       rawDiffStorage,
       artifactRecorder,
     }),
+  );
+  registry.register(
+    createGeneralistsArchitecture({ provider, promptBuilder, rawDiffStorage }),
   );
 
   const importCtx = createPRImportService({ snapshots, rawDiffStorage });
