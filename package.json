@@ -27,6 +27,7 @@
     "benchmark:export": "node scripts/benchmark-export.ts",
     "campaign:run": "node scripts/campaign-run.ts",
     "campaign:live": "node scripts/campaign-live.ts",
+    "verify:replay": "node scripts/verify-replay.ts",
     "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "check": "npm run typecheck && npm run test"
   },

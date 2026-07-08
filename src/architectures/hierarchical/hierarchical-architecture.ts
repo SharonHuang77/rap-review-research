@@ -10,6 +10,7 @@ import type { Logger } from "../../shared/logger.ts";
 import type { ILLMProvider } from "../../llm/provider/llm-provider.ts";
 import type { PromptBuilder } from "../../llm/prompts/prompt-builder.ts";
 import type { RawDiffStorage } from "../../storage/raw-diff-storage.ts";
+import type { ReviewArtifactRecorder } from "../../storage/review-artifact-recorder.ts";
 import type { LLMConfig } from "../../config/llm.ts";
 import type { IReviewSpecialist } from "./specialists/review-specialist.ts";
 import type { IReviewPlanner } from "./review-plan.ts";
@@ -31,6 +32,8 @@ export interface HierarchicalArchitectureDependencies {
   readonly synthesizer?: Synthesizer;
   readonly clock?: Clock;
   readonly logger?: Logger;
+  /** When set, the full intermediate result is persisted for replay (B1). */
+  readonly artifactRecorder?: ReviewArtifactRecorder;
 }
 
 /**
@@ -49,6 +52,7 @@ export class HierarchicalArchitecture implements IReviewArchitecture {
   private readonly synthesizer: Synthesizer;
   private readonly clock: Clock;
   private readonly logger: Logger;
+  private readonly artifactRecorder?: ReviewArtifactRecorder;
 
   public constructor(deps: HierarchicalArchitectureDependencies) {
     this.specialists = deps.specialists;
@@ -58,6 +62,7 @@ export class HierarchicalArchitecture implements IReviewArchitecture {
     this.synthesizer = deps.synthesizer ?? new Synthesizer();
     this.clock = deps.clock ?? new SystemClock();
     this.logger = deps.logger ?? new NoopLogger();
+    this.artifactRecorder = deps.artifactRecorder;
   }
 
   public async execute(
@@ -72,6 +77,9 @@ export class HierarchicalArchitecture implements IReviewArchitecture {
       logger: this.logger,
     });
     const { result, metrics } = await manager.run(input);
+    if (this.artifactRecorder) {
+      await this.artifactRecorder.recordHierarchical(input.experimentId, result);
+    }
     return toRawReviewResult(result, metrics);
   }
 }
@@ -127,6 +135,7 @@ export function createHierarchicalArchitecture(deps: {
   config?: LLMConfig;
   clock?: Clock;
   logger?: Logger;
+  artifactRecorder?: ReviewArtifactRecorder;
 }): HierarchicalArchitecture {
   const specialistDeps = {
     provider: deps.provider,
@@ -143,5 +152,6 @@ export function createHierarchicalArchitecture(deps: {
     specialists,
     clock: deps.clock,
     logger: deps.logger,
+    artifactRecorder: deps.artifactRecorder,
   });
 }
