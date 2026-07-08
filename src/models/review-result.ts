@@ -35,7 +35,15 @@ export interface RawReviewResult {
 
   readonly inputTokens: number;
   readonly outputTokens: number;
+  /** Sum of every LLM call's latency (total compute time). */
   readonly latencyMs: number;
+  /**
+   * Wall-clock lower bound when independent calls run in parallel: the sum over
+   * sequential rounds of the slowest call in each round (B3). Equals
+   * `latencyMs` for single-call architectures. Optional so existing carriers
+   * default to the sum when a topology does not report it.
+   */
+  readonly criticalPathLatencyMs?: number;
   readonly estimatedCostUsd: number;
   /** Number of inter-agent messages (0/1 for single-agent architectures). */
   readonly messageCount: number;
@@ -56,6 +64,8 @@ export interface ValidatedReviewResult {
   readonly validation: ValidationMetadata;
 
   readonly latencyMs: number;
+  /** See {@link RawReviewResult.criticalPathLatencyMs}. */
+  readonly criticalPathLatencyMs?: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;

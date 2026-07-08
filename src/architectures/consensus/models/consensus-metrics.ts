@@ -27,5 +27,12 @@ export interface ConsensusMetrics {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly latencyMs: number;
+  /**
+   * Wall-clock lower bound (B3): the three rounds (review, revise, vote) run
+   * sequentially but each round's specialists run in parallel, so this is the
+   * sum of the slowest call per round — far below `latencyMs` (the sum of all
+   * nine calls).
+   */
+  readonly criticalPathLatencyMs: number;
   readonly estimatedCostUsd: number;
 }

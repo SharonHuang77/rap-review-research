@@ -71,6 +71,7 @@ test("copies operational cost from the validated result", () => {
   );
   assert.deepEqual(m, {
     latencyMs: 1234,
+    criticalPathLatencyMs: 1234, // falls back to latencyMs (no critical path stored)
     inputTokens: 700,
     outputTokens: 90,
     estimatedCostUsd: 0.0321,

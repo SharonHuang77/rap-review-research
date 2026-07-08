@@ -19,6 +19,7 @@ export interface StoredRawReviewResult {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly latencyMs: number;
+  readonly criticalPathLatencyMs?: number;
   readonly estimatedCostUsd: number;
   readonly llmCalls: number;
   readonly messageCount: number;
@@ -33,6 +34,7 @@ export interface StoredValidatedReviewResult {
   readonly findings: ReviewFinding[];
   readonly validation: ValidationMetadata;
   readonly latencyMs: number;
+  readonly criticalPathLatencyMs?: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;

@@ -33,6 +33,7 @@ function baseInput(candidates: CandidateFinding[], votes: ReviewVote[]): Synthes
     inputTokens: 30,
     outputTokens: 12,
     latencyMs: 90,
+    criticalPathLatencyMs: 30,
     estimatedCostUsd: 0.003,
   };
 }

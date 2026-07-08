@@ -45,6 +45,7 @@ function buildMetrics(overrides: MetricsOverrides = {}): ExperimentMetrics {
     },
     operationalCost: {
       latencyMs: 1200,
+      criticalPathLatencyMs: 1200,
       inputTokens: 500,
       outputTokens: 250,
       estimatedCostUsd: 0.0123,
@@ -87,7 +88,7 @@ test("CSV export writes a header in the stable column order", async () => {
   const result = await exporter.export(sampleInput());
   const [header] = result.content.split("\n");
   assert.equal(header, STABLE_COLUMNS.join(","));
-  assert.equal(STABLE_COLUMNS.length, 19);
+  assert.equal(STABLE_COLUMNS.length, 20); // + criticalPathLatencyMs (B3)
 });
 
 test("CSV export emits one row per architecture per comparison", async () => {

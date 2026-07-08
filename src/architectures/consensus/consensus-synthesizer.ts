@@ -36,6 +36,7 @@ export interface SynthesizeInput {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly latencyMs: number;
+  readonly criticalPathLatencyMs: number;
   readonly estimatedCostUsd: number;
 }
 
@@ -152,6 +153,7 @@ export class ConsensusSynthesizer {
       inputTokens: input.inputTokens,
       outputTokens: input.outputTokens,
       latencyMs: input.latencyMs,
+      criticalPathLatencyMs: input.criticalPathLatencyMs,
       estimatedCostUsd: input.estimatedCostUsd,
     };
 
