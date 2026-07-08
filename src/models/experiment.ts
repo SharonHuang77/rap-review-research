@@ -19,7 +19,11 @@ export type ExperimentStatus =
  * the research. New topologies are added as plugins without changing the
  * Experiment Engine.
  */
-export type ReviewArchitecture = "agentless" | "hierarchical" | "consensus";
+export type ReviewArchitecture =
+  | "agentless"
+  | "hierarchical"
+  | "consensus"
+  | "generalists-3";
 
 /**
  * The primary entity of the platform.
