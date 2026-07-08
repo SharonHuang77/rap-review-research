@@ -32,6 +32,7 @@ function benchmarkResult(
     recall,
     f1: recall,
     localizationAccuracy: recall,
+    snippetLocalizationAccuracy: recall,
   };
 }
 

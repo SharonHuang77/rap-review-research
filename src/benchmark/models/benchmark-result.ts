@@ -40,7 +40,14 @@ export interface BenchmarkResult {
   readonly uniquePrecision: number;
   readonly recall: number;
   readonly f1: number;
+  /** Localization using the model's reported line. */
   readonly localizationAccuracy: number;
+  /**
+   * Localization after re-anchoring snippet-bearing findings to the diff line
+   * (A3). Equals `localizationAccuracy` when no diff is available. Comparing the
+   * two isolates how much of a localization gap is line-arithmetic error.
+   */
+  readonly snippetLocalizationAccuracy: number;
 }
 
 /**

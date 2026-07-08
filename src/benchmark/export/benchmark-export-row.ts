@@ -22,6 +22,7 @@ export interface BenchmarkExportRow {
   readonly recall: number;
   readonly f1: number;
   readonly localizationAccuracy: number;
+  readonly snippetLocalizationAccuracy: number;
 }
 
 /**
@@ -44,6 +45,7 @@ export const BENCHMARK_STABLE_COLUMNS: readonly (keyof BenchmarkExportRow)[] = [
   "recall",
   "f1",
   "localizationAccuracy",
+  "snippetLocalizationAccuracy",
 ];
 
 /** Project benchmark results into export rows. Pure; does not mutate input. */
@@ -66,5 +68,6 @@ export function toBenchmarkExportRows(
     recall: r.recall,
     f1: r.f1,
     localizationAccuracy: r.localizationAccuracy,
+    snippetLocalizationAccuracy: r.snippetLocalizationAccuracy,
   }));
 }

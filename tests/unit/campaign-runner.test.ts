@@ -95,6 +95,7 @@ function outcomeFor(input: ExecutionInput): ExecutionOutcome {
       recall: 0,
       f1: 0,
       localizationAccuracy: 0,
+      snippetLocalizationAccuracy: 0,
     },
     metrics: {} as ExperimentMetrics,
   };

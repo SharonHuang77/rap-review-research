@@ -28,6 +28,7 @@ function result(overrides: Partial<BenchmarkResult> = {}): BenchmarkResult {
     recall: 0.5,
     f1: 0.4,
     localizationAccuracy: 1,
+    snippetLocalizationAccuracy: 1,
     ...overrides,
   };
 }

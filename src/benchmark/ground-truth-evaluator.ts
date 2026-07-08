@@ -5,6 +5,7 @@ import type { BenchmarkResult } from "./models/benchmark-result.ts";
 
 import { IssueMatcher } from "./matching/issue-matcher.ts";
 import { maxBipartiteMatching } from "./matching/bipartite-matcher.ts";
+import { resolveSnippetLine } from "./matching/snippet-locator.ts";
 import { areDuplicateFindings } from "../architectures/shared/finding-dedup.ts";
 
 export interface GroundTruthEvaluatorDependencies {
@@ -61,6 +62,15 @@ export class GroundTruthEvaluator {
         : 0;
     const localizationAccuracy = detected > 0 ? truePositives / detected : 0;
 
+    // Snippet-anchored localization (A3): when the diff is available, re-anchor
+    // each finding that quotes a snippet to its true line, then re-score strict
+    // matches over the same file-level denominator. Measures understanding
+    // rather than the model's diff-line arithmetic. Falls back to the raw
+    // localization when no diff is supplied or no snippet resolves.
+    const snippetLocalizationAccuracy = run.rawDiff
+      ? this.snippetLocalization(produced, groundTruth, detected, run.rawDiff)
+      : localizationAccuracy;
+
     // Unique-issue precision: collapse near-duplicate produced findings so a
     // cluster of paraphrases counts once, then re-match. Puts an architecture
     // with a dedup stage and one without on equal footing. Matching on the
@@ -97,7 +107,43 @@ export class GroundTruthEvaluator {
       recall,
       f1,
       localizationAccuracy,
+      snippetLocalizationAccuracy,
     };
+  }
+
+  /**
+   * Localization after re-anchoring snippet-bearing findings to the line the
+   * snippet occupies in the diff (reported line kept when it does not resolve).
+   * Numerator is strict matches on the anchored lines; denominator is the same
+   * file-level `detected` count (unaffected by line changes), so the result
+   * stays in [0, 1].
+   */
+  private snippetLocalization(
+    produced: ReviewFinding[],
+    groundTruth: GroundTruthIssue[],
+    detected: number,
+    rawDiff: string,
+  ): number {
+    if (detected === 0) {
+      return 0;
+    }
+    const anchored = produced.map((finding) => {
+      if (finding.snippet === undefined) {
+        return finding;
+      }
+      const line = resolveSnippetLine(rawDiff, finding.file, finding.snippet);
+      return line === undefined ? finding : { ...finding, line };
+    });
+    const anchoredTruePositives = maxBipartiteMatching(
+      anchored.length,
+      groundTruth.length,
+      (f, g) =>
+        this.matcher.match(
+          anchored[f] as ReviewFinding,
+          groundTruth[g] as GroundTruthIssue,
+        ).matched,
+    );
+    return anchoredTruePositives / detected;
   }
 
   /**

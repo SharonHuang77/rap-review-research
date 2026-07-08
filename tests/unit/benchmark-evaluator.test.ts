@@ -163,6 +163,40 @@ test("duplicate findings drop raw precision but not unique precision or recall (
   assert.equal(result.recall, 1); // g1 still found
 });
 
+test("snippet anchoring recovers localization when the reported line is wrong (A3)", () => {
+  const diff = [
+    "diff --git a/src/a.ts b/src/a.ts",
+    "--- a/src/a.ts",
+    "+++ b/src/a.ts",
+    "@@ -10,1 +10,1 @@",
+    "-const safe = sanitize(input);",
+    "+const danger = eval(input);",
+    "",
+  ].join("\n");
+  const gt: GroundTruthIssue[] = [
+    { id: "g1", file: "src/a.ts", lineStart: 10, lineEnd: 10 },
+  ];
+  const misreported: ReviewFinding = {
+    ...finding("src/a.ts", 99), // wrong reported line
+    snippet: "const danger = eval(input);", // but the snippet is correct
+  };
+  const r = new GroundTruthEvaluator().evaluate({
+    ...run([misreported], gt),
+    rawDiff: diff,
+  });
+  // Raw line 99 misses the [10,10] issue; snippet re-anchors to line 10.
+  assert.equal(r.truePositives, 0);
+  assert.equal(r.localizationAccuracy, 0);
+  assert.equal(r.snippetLocalizationAccuracy, 1);
+});
+
+test("snippet localization falls back to raw when no diff is provided (A3)", () => {
+  const r = new GroundTruthEvaluator().evaluate(
+    run([finding("src/a.ts", 10)], GT),
+  );
+  assert.equal(r.snippetLocalizationAccuracy, r.localizationAccuracy);
+});
+
 test("BenchmarkEvaluator macro-summarizes results per architecture", () => {
   const evaluator = new BenchmarkEvaluator();
   const results = [
