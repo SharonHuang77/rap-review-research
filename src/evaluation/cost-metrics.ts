@@ -17,6 +17,7 @@ export class CostMetricsCalculator {
       // single-call agentless), so the column is always populated.
       criticalPathLatencyMs:
         source?.criticalPathLatencyMs ?? source?.latencyMs ?? 0,
+      truncatedCallCount: source?.truncatedCallCount ?? 0,
       inputTokens: source?.inputTokens ?? 0,
       outputTokens: source?.outputTokens ?? 0,
       estimatedCostUsd: source?.estimatedCostUsd ?? 0,

@@ -39,6 +39,7 @@ function outcome(
   architecture: ReviewArchitecture,
   instanceId: string,
   recall: number,
+  truncatedCalls = 0,
 ): ExecutionOutcome {
   return {
     datasetId: "qodo",
@@ -59,7 +60,10 @@ function outcome(
       groundTruth: [],
     },
     benchmarkResult: benchmarkResult(architecture, instanceId, recall),
-    metrics: {} as ExperimentMetrics,
+    metrics: {
+      architecture,
+      operationalCost: { truncatedCallCount: truncatedCalls },
+    } as ExperimentMetrics,
   };
 }
 
@@ -106,4 +110,34 @@ test("summarizes progress, per-architecture means, coverage, and failures", () =
   assert.equal(summary.failures[0]!.architecture, "consensus");
   assert.equal(summary.failures[0]!.attempts, 3);
   assert.equal(summary.failures[0]!.error, "boom");
+});
+
+test("reports per-architecture truncation rate (B2)", () => {
+  const manifest = new Manifest({
+    campaignId: "c1",
+    createdAt: "t",
+    modelVersion: "m",
+    promptVersion: "v1",
+    workflowVersion: "w1",
+    evaluationVersion: "e1",
+    entries: [],
+  });
+  // agentless: 2 runs, one truncated → 0.5; hierarchical: 2 runs, none → 0.
+  const outcomes = [
+    outcome("agentless", "q1", 1, 1),
+    outcome("agentless", "q2", 1, 0),
+    outcome("hierarchical", "q1", 1, 0),
+    outcome("hierarchical", "q2", 1, 0),
+  ];
+  const summary = buildCampaignSummary({ manifest, outcomes });
+
+  const agentless = summary.truncation.find((t) => t.architecture === "agentless");
+  assert.equal(agentless?.runs, 2);
+  assert.equal(agentless?.truncatedRuns, 1);
+  assert.equal(agentless?.totalTruncatedCalls, 1);
+  assert.equal(agentless?.truncationRate, 0.5);
+
+  const hier = summary.truncation.find((t) => t.architecture === "hierarchical");
+  assert.equal(hier?.truncatedRuns, 0);
+  assert.equal(hier?.truncationRate, 0);
 });

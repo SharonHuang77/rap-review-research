@@ -99,6 +99,11 @@ export class MajorityVoteConsensusProtocol implements IConsensusProtocol {
       maxLatency(independentResults) +
       maxLatency(revisedResults) +
       maxLatency(voteResults);
+    const truncatedCallCount = [
+      ...independentResults,
+      ...revisedResults,
+      ...voteResults,
+    ].filter((r) => r.truncated).length;
 
     // Synthesis (deterministic majority rule; no LLM).
     session.transition("synthesizing");
@@ -118,6 +123,7 @@ export class MajorityVoteConsensusProtocol implements IConsensusProtocol {
       outputTokens,
       latencyMs,
       criticalPathLatencyMs,
+      truncatedCallCount,
       estimatedCostUsd,
     });
   }

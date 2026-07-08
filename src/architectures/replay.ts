@@ -52,6 +52,7 @@ export function replayConsensusFindings(
     outputTokens: metrics.outputTokens,
     latencyMs: metrics.latencyMs,
     criticalPathLatencyMs: metrics.criticalPathLatencyMs,
+    truncatedCallCount: metrics.truncatedCallCount,
     estimatedCostUsd: metrics.estimatedCostUsd,
   }).acceptedFindings;
 }

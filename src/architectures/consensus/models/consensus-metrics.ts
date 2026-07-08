@@ -34,5 +34,7 @@ export interface ConsensusMetrics {
    * nine calls).
    */
   readonly criticalPathLatencyMs: number;
+  /** How many of the 9 LLM calls were cut off by the output-token cap (B2). */
+  readonly truncatedCallCount: number;
   readonly estimatedCostUsd: number;
 }

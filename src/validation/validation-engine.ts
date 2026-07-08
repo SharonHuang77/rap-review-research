@@ -89,6 +89,7 @@ export class ValidationEngine implements IOutputValidator {
       validation,
       latencyMs: raw.latencyMs,
       criticalPathLatencyMs: raw.criticalPathLatencyMs,
+      truncatedCallCount: raw.truncatedCallCount,
       inputTokens: raw.inputTokens,
       outputTokens: raw.outputTokens,
       estimatedCostUsd: raw.estimatedCostUsd,

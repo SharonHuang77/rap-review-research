@@ -8,6 +8,7 @@ import type { RawDiffStorage } from "../../storage/raw-diff-storage.ts";
 import type { LLMConfig } from "../../config/llm.ts";
 
 import { LLM_CONFIG } from "../../config/llm.ts";
+import { isTruncatedStopReason } from "../../llm/models/llm-review-response.ts";
 
 /**
  * The specialist plugin contract, shared by Hierarchical and Consensus.
@@ -91,6 +92,7 @@ export class LlmReviewSpecialist implements IReviewSpecialist {
       inputTokens: response.inputTokens,
       outputTokens: response.outputTokens,
       estimatedCostUsd: response.estimatedCostUsd,
+      truncated: isTruncatedStopReason(response.stopReason),
     };
   }
 }

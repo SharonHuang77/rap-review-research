@@ -49,6 +49,13 @@ export interface RawReviewResult {
   readonly messageCount: number;
   /** Number of LLM provider calls made during execution (RFC-04). */
   readonly llmCalls: number;
+  /**
+   * How many of this run's LLM calls were cut off by the output-token cap (B2).
+   * A truncated call can silently drop findings; tracking it separates a
+   * token-budget recall loss from a topology effect. Optional so carriers
+   * default to 0 when unreported.
+   */
+  readonly truncatedCallCount?: number;
 }
 
 /**
@@ -71,4 +78,6 @@ export interface ValidatedReviewResult {
   readonly estimatedCostUsd: number;
   readonly llmCalls: number;
   readonly messageCount: number;
+  /** See {@link RawReviewResult.truncatedCallCount}. */
+  readonly truncatedCallCount?: number;
 }

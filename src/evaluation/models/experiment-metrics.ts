@@ -28,6 +28,8 @@ export interface OperationalCostMetrics {
    * to `latencyMs` for architectures that do not report a critical path.
    */
   readonly criticalPathLatencyMs: number;
+  /** How many LLM calls were cut off by the output-token cap (B2). */
+  readonly truncatedCallCount: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;

@@ -108,6 +108,7 @@ function toRawReviewResult(
     outputTokens: sum((r) => r.outputTokens),
     latencyMs: sum((r) => r.latencyMs) + metrics.mergeLatencyMs,
     criticalPathLatencyMs: metrics.criticalPathLatencyMs,
+    truncatedCallCount: result.specialistResults.filter((r) => r.truncated).length,
     estimatedCostUsd: sum((r) => r.estimatedCostUsd),
     messageCount: metrics.messageCount,
     llmCalls: metrics.llmCalls,

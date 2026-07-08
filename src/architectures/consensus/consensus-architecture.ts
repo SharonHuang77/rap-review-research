@@ -95,6 +95,7 @@ function toRawReviewResult(result: ConsensusReviewResult): RawReviewResult {
     outputTokens: metrics.outputTokens,
     latencyMs: metrics.latencyMs,
     criticalPathLatencyMs: metrics.criticalPathLatencyMs,
+    truncatedCallCount: metrics.truncatedCallCount,
     estimatedCostUsd: metrics.estimatedCostUsd,
     messageCount: metrics.messageCount,
     llmCalls: metrics.llmCalls,

@@ -18,6 +18,7 @@ import {
   LlmReviewSpecialist,
   parseSpecialistReview,
 } from "../shared/review-specialist.ts";
+import { isTruncatedStopReason } from "../../llm/models/llm-review-response.ts";
 
 const VOTE_VALUES: readonly ConsensusVoteValue[] = ["accept", "reject", "revise"];
 
@@ -34,6 +35,8 @@ export interface SpecialistVoteResult {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;
+  /** This voting call was cut off by the output-token cap (B2). */
+  readonly truncated?: boolean;
 }
 
 export interface IConsensusSpecialist extends IReviewSpecialist {
@@ -87,6 +90,7 @@ export class ConsensusSpecialist implements IConsensusSpecialist {
       inputTokens: response.inputTokens,
       outputTokens: response.outputTokens,
       estimatedCostUsd: response.estimatedCostUsd,
+      truncated: isTruncatedStopReason(response.stopReason),
     };
   }
 
@@ -102,6 +106,7 @@ export class ConsensusSpecialist implements IConsensusSpecialist {
       inputTokens: response.inputTokens,
       outputTokens: response.outputTokens,
       estimatedCostUsd: response.estimatedCostUsd,
+      truncated: isTruncatedStopReason(response.stopReason),
     };
   }
 
