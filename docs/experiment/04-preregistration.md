@@ -12,11 +12,14 @@
 > OSF pre-registration structure so it can be submitted before the frozen
 > campaign begins.
 >
-> **Decision status:** all four framing decisions are now **RESOLVED** in-line
+> **Decision status:** all four framing decisions are **RESOLVED** in-line
 > (primary hypothesis H2, an exploratory model-scale 5th arm, sample sizes +
-> power, and the A2 LLM-judge matcher). What remains before OSF submission is
-> co-author sign-off, finalizing the power paragraph on the pilot's measured
-> variance (§3.2), confirming the judge model id (§5.1), and the prompt freeze.
+> power, and the A2 LLM-judge matcher). A **20-PR pilot (§3.4) has now been run**
+> and closes the previously-open items: the power paragraph is finalized on the
+> pilot's measured variance (§3.2), the judge model id is confirmed and τ shown
+> insensitive (§5.1), and the system-under-test model is recommended (Haiku 4.5,
+> §4.2). What remains before OSF submission is **co-author sign-off** and the
+> **prompt freeze** (`prompt-freeze-v1`).
 
 ---
 
@@ -108,8 +111,10 @@ Its cost-parity budget (target output tokens / calls to match a small-model
 ## 3. Sampling plan
 
 ### 3.1 Data collection status
-No confirmatory data collected yet. A ≤5-PR pilot (excluded from confirmatory
-analysis) will validate the pipeline and calibrate cost before the freeze.
+No confirmatory data collected yet. A **20-PR pilot** (§3.4), excluded from the
+confirmatory analysis, has been run to validate the pipeline, confirm model
+availability, and calibrate cost, variance (§3.2), and the matcher (§5.1) before
+the freeze.
 
 ### 3.2 Datasets & sample sizes
 | Dataset | Purpose | Target PRs |
@@ -133,16 +138,17 @@ confirmatory benchmark; SWE-PRBench and RAP are secondary.
 **Power justification (primary test, H2).** The primary test is a paired
 comparison of per-PR recall (hierarchical vs generalists-3) over N = 100 PRs
 (§5.2, paired Wilcoxon / mixed-effects). At α = 0.05 (two-sided) and 80% power, a
-paired test on N = 100 detects a standardized effect of dz ≈ 0.28. Taking a
-per-PR recall SD ≈ 0.25 (to be replaced with the pilot's measured value — see
-below), that corresponds to a **detectable mean recall difference of ≈ 6–8
-percentage points**. This floor is deliberately aligned with the study's
-practical-significance threshold: a recall gain smaller than ~6 points would not
-justify the added compute of specialization, so the experiment is powered to
-detect exactly the effects that would matter. **This statement is provisional**
-until the ≤5-PR pilot (§3.1) yields the observed per-PR recall variance; the
-power paragraph will be finalized with that value **before** the freeze/OSF
-submission.
+paired test on N = 100 detects a standardized effect of dz ≈ 0.28. The **pilot
+(§3.4, N = 20 Qodo) measured the SD of the paired per-PR recall difference at
+≈ 0.13** (pairing removes the between-PR difficulty variance; the single-arm
+per-PR recall SD was ≈ 0.29, in line with the 0.25 prior). At SD_diff ≈ 0.13, the
+study detects a **mean recall difference of ≈ 3.7 percentage points** at N = 100
+— comfortably below the ~6-point practical-significance threshold, so the
+confirmatory test is well-powered for effects that would matter. (For context
+only: the pilot's *observed* paired difference was ≈ −0.03, i.e. no
+specialization advantage — but that is exploratory and does not substitute for
+the confirmatory test.) Should the frozen campaign's variance materially exceed
+the pilot's, N or the effect-size floor will be revisited and the change logged.
 
 ### 3.3 Repeated runs & stopping rule
 Each (PR × arm) is executed **3 times**. Deterministic arms (agentless,
@@ -151,6 +157,42 @@ runs at `sampleTemperature` (frozen value, default 0.7 — §4.2). Final per-ins
 = arithmetic mean across runs; min/max/SD reported. No data-dependent stopping:
 the full grid is run once (plus documented retries for transient infrastructure
 failures only).
+
+### 3.4 Pilot study (exploratory — informs this design, NOT a confirmatory result)
+
+A pilot was run on **20 real Qodo PRs** (the first 20 of the 100-PR set), all four
+confirmatory arms, one run each, on **both** candidate foundation models, with the
+A2 LLM-judge matcher active. Its role is **feasibility + design calibration**; the
+numbers below are **exploratory and do not test H1–H5**, which remain
+pre-specified and will be evaluated only on the frozen confirmatory campaign at
+the registered N. The pilot is **excluded from the confirmatory analysis.**
+
+**Feasibility (established).** The full generate → judge → dual-evaluate pipeline
+runs end-to-end on real PRs; both candidate models (Claude Haiku 4.5, Claude
+Sonnet 4.5) and the non-Anthropic judge (Llama 3.3 70B) are region-enabled and
+invokable; per-PR raw outputs and judge scores persist and replay at zero cost.
+
+**Preliminary observations (N = 20, exploratory — motivate, do not decide, the confirmatory study).**
+- Under both matchers and both models, **agentless has the highest F1**; the extra
+  test-time compute of the multi-agent arms buys recall at a precision cost that is
+  net-negative for F1. This *motivates* the RQ1/RQ4 framing; it is not a
+  confirmatory result.
+- The specialization contrast (H2) shows **no advantage in the pilot** — per-PR
+  recall difference (hierarchical − generalists-3) had mean ≈ −0.03 (SD 0.13),
+  i.e. hierarchical was not higher. Consistent with the pre-registered "a null is
+  itself informative" framing (§1.3, DECISION 1). H2 is still tested confirmatorily
+  at N = 100.
+- Semantic (LLM-judge) matching lifts F1 uniformly by ≈ 0.04–0.05 over strict
+  location matching with the **arm ordering essentially unchanged** (agentless
+  best, generalists-3 weakest) — the dual-matcher stability the analysis plan
+  requires (§5.1).
+
+**Calibration outputs used below.** (i) per-PR recall variance → §3.2 power; (ii)
+the judge returns near-binary scores → τ is insensitive (§5.1); (iii) two
+generation-side and one infrastructure defect were found and fixed before the
+freeze (§5.4, §6): specialists emitting no parseable findings, whole-review
+rejection on one malformed finding (a single-call fairness bias), and the judge
+lacking rate-limit backoff.
 
 ---
 
@@ -175,6 +217,13 @@ temperature 0 (other arms), top-p, maxTokens, PR snapshot, validation engine,
 matcher, evaluation scripts, JSON schema, severity/category definitions, AWS
 region, dedup predicate, export schema. All frozen at the prompt-freeze
 milestone (`prompt-freeze-v1` git tag).
+
+**Foundation model (pilot-informed recommendation).** Freeze on **Claude Haiku
+4.5** as the system under test: the pilot (§3.4) found the qualitative
+conclusions unchanged between Haiku 4.5 and Claude Sonnet 4.5 while Haiku is
+≈ 3× cheaper — decisive for a 100-PR × 4-arm × 3-run campaign. Sonnet 4.5 is run
+as a **model-robustness check** (reported, not the primary). The final frozen
+model is confirmed at co-author sign-off.
 
 ---
 
@@ -203,8 +252,14 @@ no-human-labeling "three-pack":
    calibration set; report Cohen's κ between judges.
 3. **Dual-matcher stability** — whether arm rankings hold under strict vs.
    semantic matching.
-τ is calibrated on the pilot data. An optional ~50-pair human-labeled κ check
-may upgrade the evidence but is not required.
+**Pilot-confirmed (§3.4).** The judge model id is **`us.meta.llama3-3-70b-instruct-v1:0`**
+(Llama 3.3 70B, region-enabled and invokable). On the 1,400+ candidate pairs it
+scored, the judge returned **near-binary scores** (effectively 0 or 1): arm
+metrics are **identical for every τ ∈ [0.5, 0.9]**, differing only between strict
+and semantic matching. τ is therefore **not a sensitive hyperparameter**; it is
+fixed at **τ = 0.7** and the judge is best understood as a binary same-issue
+decision rather than a tunable threshold. An optional ~50-pair human-labeled κ
+check may upgrade the evidence but is not required.
 
 ### 5.2 Statistical models
 - Unit of analysis: the PR (paired across arms). Primary test uses a
@@ -228,6 +283,11 @@ A (PR × arm × run) is excluded only if the pipeline fails after 3 retries
 (infrastructure error, not a model output). Exclusions are logged in the campaign
 manifest; the same PRs are analyzed across arms (list-wise: if any arm fails all
 retries on a PR, that PR is dropped from the paired analysis and reported).
+**A single malformed finding does not exclude a run:** the validator drops the
+malformed finding, keeps the valid ones, and logs the drop
+(`ValidationMetadata.repairActions`). This is deliberate — atomic
+whole-review rejection unfairly penalised single-call arms (agentless has no
+redundancy; §6), a bias the pilot surfaced and this rule removes.
 
 ---
 
@@ -246,13 +306,27 @@ retries on a PR, that PR is dropped from the paired analysis and reported).
 - **Construct — critical-path latency:** `generalists-3`/consensus exclude
   sub-millisecond merge time that hierarchical includes; compare arms on
   LLM-bound metrics, not merge overhead.
+- **Single-call survivorship bias (mitigated):** the pilot found that atomic
+  whole-review rejection on one malformed finding failed entire single-call
+  (agentless) runs while multi-call arms absorbed the defect, excluding
+  agentless's harder instances and inflating its means. Removed by lenient
+  per-finding validation (§5.4); re-running the pilot with the fix lowered
+  agentless's mean, confirming the bias was real and is now gone.
+- **Model choice (robustness):** conclusions are reported on the frozen model
+  (Haiku 4.5) with Sonnet 4.5 as a robustness arm; the pilot found arm rankings
+  stable (the agentless F1 lead and the H2 null held under both; the consensus
+  arm's rank among the multi-agent arms shifted), but a single model family
+  remains a generalizability limit and is stated as such.
 
 ---
 
 ## 7. Freeze & reproducibility
 Before the confirmatory campaign: tag `prompt-freeze-v1`; freeze prompts, model
 id, temperatures, maxTokens, datasets/subset, dedup predicate, matcher, metrics,
-export schema (runbook §22.1, generation-side). Evaluation-side changes remain
+export schema (runbook §22.1, generation-side). The ids to freeze (pilot-confirmed
+region-enabled): system-under-test `us.anthropic.claude-haiku-4-5-20251001-v1:0`
+(with `us.anthropic.claude-sonnet-4-5-20250929-v1:0` as the robustness arm) and
+judge `us.meta.llama3-3-70b-instruct-v1:0`. Evaluation-side changes remain
 permitted post-hoc **only** because all raw LLM outputs are persisted (B1) and
 the deterministic downstream is replayable (`npm run verify:replay`); every such
 change is logged. Each experiment records commit hash, platform/prompt/model
