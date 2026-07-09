@@ -12,8 +12,11 @@
 > OSF pre-registration structure so it can be submitted before the frozen
 > campaign begins.
 >
-> **⚠ DECISION markers** flag the genuine choices the co-authors must confirm
-> before submission. Resolve each, delete the marker, then freeze + submit.
+> **Decision status:** all four framing decisions are now **RESOLVED** in-line
+> (primary hypothesis H2, an exploratory model-scale 5th arm, sample sizes +
+> power, and the A2 LLM-judge matcher). What remains before OSF submission is
+> co-author sign-off, finalizing the power paragraph on the pilot's measured
+> variance (§3.2), confirming the judge model id (§5.1), and the prompt freeze.
 
 ---
 
@@ -45,24 +48,29 @@ agentless ──RQ1:+compute──▶ generalists-3 ──RQ2:+specialization─
 ```
 
 ### 1.3 Hypotheses
-- **H1 (compute):** generalists-3 ≥ agentless in recall (more samples surface
-  more true issues).
-- **H2 (specialization):** hierarchical > generalists-3 in recall, at comparable
-  precision (role prompts probe distinct issue classes).
-- **H3 (communication → precision):** consensus > hierarchical in precision
-  (voting filters false positives), at the cost of the most tokens/latency.
-- **H4 (cost monotonicity):** cost (tokens, USD, sum-of-calls latency) increases
-  monotonically along the ladder; critical-path latency does **not** (parallel
-  rounds).
-- **H5 (diminishing returns):** the quality gain per added dollar decreases along
-  the ladder — the largest marginal gain is early (RQ1/RQ2), the smallest late
-  (RQ3).
+- **H2 (specialization) — PRIMARY confirmatory.** hierarchical > generalists-3 in
+  recall, at comparable precision (role prompts probe distinct issue classes).
+- **H1 (compute) — secondary.** generalists-3 ≥ agentless in recall (more samples
+  surface more true issues).
+- **H3 (communication → precision) — secondary.** consensus > hierarchical in
+  precision (voting filters false positives), at the cost of the most tokens/latency.
+- **H4 (cost monotonicity) — secondary.** cost (tokens, USD, sum-of-calls latency)
+  increases monotonically along the ladder; critical-path latency does **not**
+  (parallel rounds).
+- **H5 (diminishing returns) — exploratory.** the quality gain per added dollar
+  decreases along the ladder — the largest marginal gain is early (RQ1/RQ2), the
+  smallest late (RQ3).
 
-> **⚠ DECISION 1 — primary confirmatory hypothesis.** OSF wants one (or a small
-> set of) *primary* confirmatory test(s); the rest are secondary/exploratory.
-> Recommendation: designate **H2 (specialization effect, hierarchical vs
-> generalists-3 recall)** as primary — it is the study's most novel, least-tested
-> claim. Confirm or change.
+**✅ DECISION 1 — RESOLVED.** The single **primary confirmatory** hypothesis is
+**H2** (specialization effect: hierarchical vs generalists-3 recall). It is the
+study's most novel and least-tested claim, and it is publishable in *both*
+directions: confirming it shows role specialization adds value beyond raw
+compute, while a null result is itself a strong finding — "the apparent
+multi-agent advantage is just more sampling, not the topology." H1/H3/H4 are
+secondary confirmatory (tested but not the headline); H5 is exploratory
+(descriptive, via the RQ4 Pareto analysis). Only H2 carries the study's main
+confirmatory claim through the §5.2 multiple-comparison correction as the
+pre-specified primary.
 
 ---
 
@@ -78,15 +86,22 @@ a **different model family** than the systems under test and is not told which
 arm produced a finding.
 
 ### 2.3 Independent variable
-Review architecture, four levels: `agentless`, `generalists-3`, `hierarchical`,
-`consensus`. Adjacent levels differ by exactly one factor (§1.2).
+Review architecture. The four ladder levels — `agentless`, `generalists-3`,
+`hierarchical`, `consensus` — are the **confirmatory** treatments; adjacent
+levels differ by exactly one factor (§1.2). A fifth **exploratory** arm,
+`agentless-large`, is also run (see DECISION 2).
 
-> **⚠ DECISION 2 — model-scale cell (roadmap D1).** The roadmap's test-time-compute
-> framing also motivates a fifth point: **agentless on a larger model** (e.g.
-> Opus-class) at cost matched to the 3-small-agent arms — "1 big model vs 3 small
-> agents at equal cost". Include as a 5th arm in this registration, or defer to
-> exploratory/future work? Recommendation: include if budget allows (it is the
-> most practitioner-relevant cell and the emptiest in the literature).
+**✅ DECISION 2 — RESOLVED (included as exploratory, Qodo-only).** Add a fifth arm
+**`agentless-large`**: the agentless prompt on a larger model (e.g. Opus-class)
+at cost matched to the 3-small-agent arms — the "1 big model vs 3 small agents at
+equal cost" cell, the most practitioner-relevant and least-studied point in the
+test-time-compute space. It is registered as **exploratory, not confirmatory**,
+because "equal cost" across model generations is an approximation (price is not a
+clean proxy for capability) that would otherwise dilute the H2 correction and
+invite reviewer disputes over the matching. Scope-limited to **Qodo (100 PRs)
+only** (not SWE-PRBench/RAP) to cap the added spend; one call per PR × 3 runs.
+Its cost-parity budget (target output tokens / calls to match a small-model
+3-agent arm) is fixed at the freeze and reported.
 
 ---
 
@@ -103,19 +118,36 @@ analysis) will validate the pipeline and calibrate cost before the freeze.
 | SWE-PRBench | human-reviewer agreement | 25 |
 | RAP Portal | industrial case study (operational metrics only) | 15 |
 
-Each PR is reviewed by **all arms**, each arm run **3 times** (§3.3). Qodo is the
-primary confirmatory benchmark; SWE-PRBench and RAP are secondary.
+Each PR is reviewed by the four confirmatory arms, each run **3 times** (§3.3);
+the exploratory `agentless-large` arm runs on Qodo only. Qodo is the primary
+confirmatory benchmark; SWE-PRBench and RAP are secondary.
 
-> **⚠ DECISION 3 — sample sizes / power.** Confirm 100 Qodo PRs (the roadmap's C6;
-> the full public set) and 25 SWE-PRBench. A short power/precision justification
-> for the primary test (DECISION 1) should be added here before submission — e.g.
-> the minimum effect size in recall that N=100 paired PRs × 3 runs can detect at
-> 80% power with the §5 test.
+**✅ DECISION 3 — RESOLVED (Qodo 100 / SWE-PRBench 25 / RAP 15; power below).**
+- **Qodo = 100 PRs** (the full public set — the roadmap's C6). It carries the
+  primary confirmatory test (H2).
+- **SWE-PRBench = 25 PRs**, secondary; we acknowledge it is underpowered for a
+  confirmatory test on its own and report it as agreement evidence, not a primary
+  claim.
+- **RAP = 15 PRs**, descriptive only (operational metrics; no correctness claims).
+
+**Power justification (primary test, H2).** The primary test is a paired
+comparison of per-PR recall (hierarchical vs generalists-3) over N = 100 PRs
+(§5.2, paired Wilcoxon / mixed-effects). At α = 0.05 (two-sided) and 80% power, a
+paired test on N = 100 detects a standardized effect of dz ≈ 0.28. Taking a
+per-PR recall SD ≈ 0.25 (to be replaced with the pilot's measured value — see
+below), that corresponds to a **detectable mean recall difference of ≈ 6–8
+percentage points**. This floor is deliberately aligned with the study's
+practical-significance threshold: a recall gain smaller than ~6 points would not
+justify the added compute of specialization, so the experiment is powered to
+detect exactly the effects that would matter. **This statement is provisional**
+until the ≤5-PR pilot (§3.1) yields the observed per-PR recall variance; the
+power paragraph will be finalized with that value **before** the freeze/OSF
+submission.
 
 ### 3.3 Repeated runs & stopping rule
 Each (PR × arm) is executed **3 times**. Deterministic arms (agentless,
-hierarchical, consensus) run at temperature 0; `generalists-3` runs at
-`sampleTemperature` (frozen value, default 0.7 — §4.2). Final per-instance metric
+agentless-large, hierarchical, consensus) run at temperature 0; `generalists-3`
+runs at `sampleTemperature` (frozen value, default 0.7 — §4.2). Final per-instance metric
 = arithmetic mean across runs; min/max/SD reported. No data-dependent stopping:
 the full grid is run once (plus documented retries for transient infrastructure
 failures only).
@@ -154,9 +186,9 @@ Results are reported under **both** a strict location-only matcher and a
 semantic/LLM-judge matcher, and we state whether arm rankings are stable across
 the two.
 
-**✅ DECISION 4 — RESOLVED (implement A2 LLM-judge as primary matcher).**
-The semantic matcher is being implemented (roadmap A2): an LLM judge backed by a
-**Bedrock non-Anthropic model** (a different family than the Claude systems under
+**✅ DECISION 4 — RESOLVED (A2 LLM-judge implemented as primary matcher).**
+The semantic matcher is implemented and merged (roadmap A2, PR #24): an LLM judge
+backed by a **Bedrock non-Anthropic model** (a different family than the Claude systems under
 test), applied as `matched = file AND (line overlap OR judge score ≥ τ)`. Strict
 location matching is reported alongside as a robustness check (dual-matcher
 stability). Judge scores are precomputed once and persisted (replayable at zero
