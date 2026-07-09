@@ -42,27 +42,26 @@ SWE-PRBench (human-reviewer agreement), RAP Portal (industrial case study).
 ## Current state (2026-07-08)
 
 - Platform infrastructure: **complete** (RFC-01…13 + campaign runner).
-- **Phase 0 (evaluation integrity + instrumentation + replay): complete** — open as
-  **PR #21** (`feat/phase-0-eval-integrity` → `main`). Covers A1 bipartite matching,
-  A4 similarity dedup, A5 unique precision, A6 invariant tests, A3 snippet-anchored
-  localization, B1 intermediate-artifact persistence + zero-LLM replay, B2 truncation
-  logging, B3 parallel dispatch + dual latency, B4 self-vote stats, B5 reject-weighted
+- **Phase 0 (evaluation integrity + instrumentation + replay): merged to `main`**
+  (was PR #21). Covers A1 bipartite matching, A4 similarity dedup, A5 unique
+  precision, A6 invariant tests, A3 snippet-anchored localization, B1
+  intermediate-artifact persistence + zero-LLM replay, B2 truncation logging,
+  B3 parallel dispatch + dual latency, B4 self-vote stats, B5 reject-weighted
   confidence, C7 double-freeze docs.
-- **C1 control arm (`generalists-3`): complete**, on branch `feat/c1-compute-matched-controls`
-  (stacked on the Phase-0 branch; not yet pushed / no PR — see Git map).
-- **Gate G0 is met** (replay verified, invariants pass, `npm run check` green: 273 tests).
+- **C1 control arm (`generalists-3`): merged to `main`** (this branch's PR) — the
+  compute-matched control between agentless and hierarchical.
+- **Gate G0 is met** (replay verified, invariants pass, `npm run check` green).
 - **Zero experiments have been run.** Prompts are **not** frozen yet. No Bedrock spend so far.
 
 ## Git / PR map & access
 
-- Upstream: `github.com/SharonHuang77/rap-review-research`.
-- Because `logisticPM` lacks write access to upstream, branches live on the fork
-  `github.com/logisticPM/rap-review-research` (git remote `fork`; `origin` = upstream).
-- `feat/phase-0-eval-integrity` → **PR #21** (open).
-- `feat/c1-compute-matched-controls` → stacked on Phase-0; **kept local** until #21 merges,
-  then rebased onto `main` for a clean standalone PR.
-- **To collaborate:** either the owner merges #21 and pushes C1, or contributors work
-  via their own fork + PR. Confirm your upstream access before assuming you can push.
+- Upstream: `github.com/SharonHuang77/rap-review-research` — `logisticPM` now has
+  push access, so branches go straight to `origin` (upstream). A fork
+  (`github.com/logisticPM/rap-review-research`, remote `fork`) also exists from
+  earlier and can be ignored.
+- Phase 0 and C1 are **merged to `main`**; their feature branches can be deleted.
+- **To collaborate:** branch off `main`, push to `origin`, open a PR. Confirm your own
+  upstream push access first (`gh api repos/SharonHuang77/rap-review-research --jq .permissions`).
 
 ## How to verify the state yourself
 
@@ -83,13 +82,15 @@ Two lines (see runbook §22.1):
   freely iterable *after* data collection, because B1 persists all raw outputs so the
   deterministic downstream can be re-run offline at no LLM cost. Log every such change.
 
-## What's next (needs owner decisions / budget — not autonomous)
+## What's next
 
-1. Review & merge **PR #21**.
-2. Rebase **C1** onto `main` and open its standalone PR.
-3. **Phase 1**: 5-PR pilot → freeze prompts (`prompt-freeze-v1` tag) → **OSF pre-registration**.
-4. **Phase 2**: the frozen campaign (paid Bedrock).
-5. **Phase 3**: the zero-cost flagship analyses (consensus phase-decomposition, needs-review
+1. **Pre-registration (in progress, no budget):** draft the OSF pre-registration and
+   update the methodology docs (`docs/experiment/01`–`02`, `docs/architecture/03`) to the
+   final design — control arm, the test-time-compute ladder, revised H1–H5, sample sizes.
+2. **Phase 1 (needs budget/decisions):** 5-PR pilot → freeze prompts (`prompt-freeze-v1`
+   tag) → submit the OSF pre-registration before the frozen campaign.
+3. **Phase 2:** the frozen campaign (paid Bedrock).
+4. **Phase 3:** the zero-cost flagship analyses (consensus phase-decomposition, needs-review
    operating curve, defect-category heterogeneity) — possible only once Phase 2 produces data.
 
 ## Key decisions already made (with where to find the "why")
