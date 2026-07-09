@@ -25,7 +25,7 @@ import { PromptLoader } from "../src/llm/prompts/prompt-loader.ts";
 import { ContextBuilder } from "../src/llm/prompts/context-builder.ts";
 import { BedrockProvider } from "../src/llm/provider/bedrock-provider.ts";
 import { LLM_CONFIG } from "../src/config/llm.ts";
-import { ProviderRateLimitError } from "../src/llm/errors.ts";
+import { ProviderRateLimitError, ProviderTimeoutError } from "../src/llm/errors.ts";
 
 import { CampaignRunner, InMemoryManifestStore, ProgressReporter } from "../src/campaign/index.ts";
 import type { BenchmarkDataset, BenchmarkInstance } from "../src/benchmark/index.ts";
@@ -46,13 +46,21 @@ const LIMIT = Math.max(1, Number(process.env.BENCHMARK_LIMIT ?? 1));
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
 
-const swePath = resolve(DATA_DIR, "swe.json");
+// `swe-golden.json` is the Martian golden-comment dataset (location-less),
+// distinct from the legacy file+line `swe.json` sample that campaign:live /
+// judge:eval load via the old SWEPRBenchAdapter — different shapes, so they must
+// not share a filename.
+const swePath = resolve(DATA_DIR, "swe-golden.json");
 if (!existsSync(swePath)) {
-  console.error(`No swe.json under ${DATA_DIR}. See data/benchmark/README.md.`);
+  console.error(`No swe-golden.json under ${DATA_DIR}. See data/benchmark/README.md.`);
   process.exit(1);
 }
 const sweDataset = new SweGoldenAdapter().toDataset(JSON.parse(readFileSync(swePath, "utf8")));
 const instances = sweDataset.instances.slice(0, LIMIT);
+if (instances.length === 0) {
+  console.error(`No instances in ${swePath} (after BENCHMARK_LIMIT=${LIMIT}).`);
+  process.exit(1);
+}
 const commentsByInstance = new Map<string, GoldenComment[]>(
   instances.map((i) => [i.instanceId, i.goldenComments]),
 );
@@ -117,13 +125,18 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     await precomputer.precompute(runs, commentsByInstance, cache);
     break;
   } catch (error) {
-    if (error instanceof ProviderRateLimitError && attempt < maxAttempts) {
+    const transient = error instanceof ProviderRateLimitError || error instanceof ProviderTimeoutError;
+    if (transient && attempt < maxAttempts) {
       const waitMs = Math.min(30_000, 2_000 * 2 ** (attempt - 1));
+      // Checkpoint so partial judge progress survives; precompute resumes via cache.has.
       if (process.env.CACHE_OUT) writeFileSync(process.env.CACHE_OUT, JSON.stringify(cache.toJSON(), null, 2));
-      console.log(`  rate limited (attempt ${attempt}/${maxAttempts}); backing off ${waitMs}ms and resuming...`);
+      const kind = error instanceof ProviderRateLimitError ? "rate limited" : "timed out";
+      console.log(`  judge ${kind} (attempt ${attempt}/${maxAttempts}); backing off ${waitMs}ms and resuming...`);
       await new Promise((r) => setTimeout(r, waitMs));
       continue;
     }
+    // Non-transient (or attempts exhausted): persist progress before failing.
+    if (process.env.CACHE_OUT) writeFileSync(process.env.CACHE_OUT, JSON.stringify(cache.toJSON(), null, 2));
     throw error;
   }
 }
