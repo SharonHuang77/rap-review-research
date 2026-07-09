@@ -50,3 +50,18 @@ test("parse failure leaves no cache entry", async () => {
   await new JudgeScorePrecomputer(provider, DEFAULT_JUDGE_CONFIG).precompute([r], cache);
   assert.equal(cache.has(finding("a.ts", 99, "X"), gt), false);
 });
+
+test("a provider error propagates (fail-fast; caller can retry to resume)", async () => {
+  const provider = new MockProvider({ failWith: new Error("boom") });
+  const cache = new SemanticScoreCache();
+  const r = run([finding("a.ts", 99, "X")], [gt]);
+  await assert.rejects(() => new JudgeScorePrecomputer(provider, DEFAULT_JUDGE_CONFIG).precompute([r], cache), /boom/);
+});
+
+test("empty findings or ground truth is a no-op", async () => {
+  let calls = 0;
+  const provider = new MockProvider({ onReview: () => { calls += 1; }, responder: () => ({ text: '{"score": 0.9}' }) });
+  const cache = new SemanticScoreCache();
+  await new JudgeScorePrecomputer(provider, DEFAULT_JUDGE_CONFIG).precompute([run([], []), run([finding("a.ts", 99, "X")], [])], cache);
+  assert.equal(calls, 0);
+});

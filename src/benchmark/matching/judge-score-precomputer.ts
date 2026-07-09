@@ -15,6 +15,11 @@ function normalizePath(path: string): string {
  * A pair is worth judging only when the finding is in the ground-truth issue's
  * file but does NOT overlap its line span — the only case where a semantic score
  * can change `matched` (overlap already matches; a different file never matches).
+ *
+ * This MUST mirror `IssueMatcher`'s file+line match rule (same normalized file,
+ * line within the issue's span): if that rule changes, this must change in
+ * lockstep. A shared helper will be extracted in the next task; for now this
+ * comment documents the coupling.
  */
 function isCandidatePair(finding: ReviewFinding, issue: GroundTruthIssue): boolean {
   const fileMatch = normalizePath(finding.file) === normalizePath(issue.file);
@@ -36,6 +41,12 @@ export class JudgeScorePrecomputer {
     this.config = config;
   }
 
+  /**
+   * If a judge call throws, the error propagates (fail-fast). Scores are cached
+   * incrementally and already-cached candidate pairs are skipped, so a caller
+   * can simply retry `precompute` to resume — successfully judged pairs are not
+   * re-judged.
+   */
   public async precompute(
     runs: BenchmarkRun[],
     cache: SemanticScoreCache,
