@@ -1,5 +1,6 @@
 import type { ReviewFinding } from "../../models/finding.ts";
 import type { GroundTruthIssue } from "../models/ground-truth-issue.ts";
+import type { GoldenComment } from "../models/golden-comment.ts";
 import type { LLMReviewRequest } from "../../llm/models/llm-review-request.ts";
 
 /** Model + inference config for the semantic judge (A2). */
@@ -66,4 +67,34 @@ export function parseJudgeScore(text: string): number | undefined {
   } catch {
     return undefined;
   }
+}
+
+const COVERAGE_SYSTEM_PROMPT =
+  "You are a strict evaluator for a code-review benchmark. You are given ONE " +
+  "finding produced by an automated reviewer and ONE human review comment. The " +
+  "human comment has no line number. Decide whether they describe THE SAME " +
+  "underlying issue, allowing for reworded descriptions. Respond with ONLY a " +
+  'JSON object {"score": n} where n is in [0,1]: 1 = certainly the same issue, ' +
+  "0 = certainly different. Output no other text.";
+
+function renderComment(c: GoldenComment): string {
+  return `severity: ${c.severity ?? "(none)"}\ncomment: ${c.body}`;
+}
+
+/**
+ * Judge prompt for SWE coverage: is the produced finding the same underlying
+ * issue as this (location-less) human review comment? Reuses {@link parseJudgeScore}.
+ */
+export function buildCoverageJudgePrompt(
+  finding: ReviewFinding,
+  comment: GoldenComment,
+  config: JudgeConfig,
+): LLMReviewRequest {
+  return {
+    systemPrompt: COVERAGE_SYSTEM_PROMPT,
+    userPrompt: `## Produced finding\n${renderFinding(finding)}\n\n## Human review comment\n${renderComment(comment)}`,
+    modelId: config.modelId,
+    temperature: config.temperature,
+    maxTokens: config.maxTokens,
+  };
 }

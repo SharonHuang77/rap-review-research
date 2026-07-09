@@ -101,3 +101,21 @@ export function areDuplicateFindings(
   }
   return jaccard(titleTokens(a.title), titleTokens(b.title)) >= titleSimilarity;
 }
+
+/**
+ * Collapse a list to its unique findings under {@link areDuplicateFindings}: a
+ * finding is kept unless it duplicates one already kept. Order-stable. Used by
+ * the SWE coverage path (and available anywhere unique findings are needed).
+ */
+export function dedupeFindings<T extends FindingLocus>(
+  findings: readonly T[],
+  options: FindingDedupOptions = {},
+): T[] {
+  const unique: T[] = [];
+  for (const finding of findings) {
+    if (!unique.some((kept) => areDuplicateFindings(kept, finding, options))) {
+      unique.push(finding);
+    }
+  }
+  return unique;
+}

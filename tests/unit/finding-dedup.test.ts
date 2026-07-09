@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { ReviewFinding } from "../../src/models/finding.ts";
-import { areDuplicateFindings } from "../../src/architectures/shared/finding-dedup.ts";
+import { areDuplicateFindings, dedupeFindings } from "../../src/architectures/shared/finding-dedup.ts";
 
 function finding(overrides: Partial<ReviewFinding> = {}): ReviewFinding {
   return {
@@ -66,4 +66,16 @@ test("line proximity and title similarity are configurable", () => {
   // Low token overlap by default → not duplicates; relax the threshold.
   assert.equal(areDuplicateFindings(c, d), false);
   assert.equal(areDuplicateFindings(c, d, { titleSimilarity: 0 }), true);
+});
+
+test("dedupeFindings collapses near-duplicate findings (same file, ±2 lines, similar title)", () => {
+  const findings = [
+    { file: "a.ts", line: 10, title: "SQL injection risk" },
+    { file: "a.ts", line: 11, title: "SQL injection risk" }, // dup of the first
+    { file: "b.ts", line: 3, title: "Unvalidated input" },
+  ];
+  const unique = dedupeFindings(findings);
+  assert.equal(unique.length, 2);
+  assert.equal(unique[0].file, "a.ts");
+  assert.equal(unique[1].file, "b.ts");
 });

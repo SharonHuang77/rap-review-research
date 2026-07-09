@@ -34,12 +34,33 @@ dataset and what hypothesis **H2 (specialization)** rests on.
    start_line, end_line, title, description, category }] }] }`, filtering
    issues whose `file_path`/`start_line` is null.
 
-## `swe.json` — SWE-PRBench (E2, human agreement) — ⚠ PLACEHOLDER SAMPLE
+## `swe-golden.json` — SWE-PRBench (E2, human agreement) — real data
 
-Still the **2-instance sample fixture**, not real data. The real source
-([withmartian/code-review-benchmark](https://github.com/withmartian/code-review-benchmark),
-`offline/golden_comments/`) provides PR-level human comments with a `severity`
-but **no file path or line** — incompatible with the current file+line SWE
-adapter. Ingesting it needs a **semantic-only matching mode** (drop the file/line
-gate, match via the A2 judge). Tracked as follow-up; do not treat `swe.json`
-as real yet.
+**Real data**, the Martian code-review benchmark: 50 PRs across 5 repos
+(cal.com, discourse, grafana, keycloak, sentry), 136 golden comments.
+
+- **Source:** [withmartian/code-review-benchmark](https://github.com/withmartian/code-review-benchmark),
+  `offline/golden_comments/{cal_dot_com,discourse,grafana,keycloak,sentry}.json`
+  (each entry: `pr_title`, `url`, `comments:[{comment, severity}]`).
+- **Golden comments are location-less** — PR-level free text + a severity label,
+  **no file/line**. They are scored by `npm run swe:eval` via **semantic
+  LLM-judge matching** (`SweGoldenAdapter` → `SemanticCoverageEvaluator`,
+  coverage/precision, mirroring Martian's own method) — NOT the file+line
+  `GroundTruthEvaluator`.
+- **Diffs:** each PR's diff is fetched from GitHub via its `url`
+  (`gh api repos/<owner>/<repo>/pulls/<n> -H "Accept: application/vnd.github.v3.diff"`);
+  instance id = `<repo>-<n>`. PRs whose diff cannot be fetched are dropped.
+
+### Regenerating
+
+Download the 5 golden-comment files, fetch each PR's diff, and emit
+`{ name, instances: [{ instance_id, pr_title, patch, golden_comments: [{comment, severity}] }] }`
+→ `data/benchmark/swe-golden.json`.
+
+## `swe.json` — legacy file+line sample (demos only)
+
+The **2-instance sample fixture** (per-comment file+line shape) consumed by the
+mock demos and by `campaign:live`/`judge:eval`'s optional SWE slice via the old
+`SWEPRBenchAdapter`. **Not** the real SWE-PRBench data (that is `swe-golden.json`
+above); kept only so those tools keep working. Superseded for the real E2 eval;
+retiring it is a documented follow-up.
