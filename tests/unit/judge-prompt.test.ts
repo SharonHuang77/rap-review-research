@@ -10,6 +10,7 @@ const issue: GroundTruthIssue = { id: "g", file: "db.ts", lineStart: 10, lineEnd
 
 test("parseJudgeScore extracts, clamps, and rejects junk", () => {
   assert.equal(parseJudgeScore('{"score": 0.8}'), 0.8);
+  assert.equal(parseJudgeScore('{"score": 0}'), 0);
   assert.equal(parseJudgeScore('prefix {"score": 1.5} suffix'), 1);
   assert.equal(parseJudgeScore('{"score": -0.2}'), 0);
   assert.equal(parseJudgeScore("not json"), undefined);
