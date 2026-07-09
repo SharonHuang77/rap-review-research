@@ -59,7 +59,10 @@ export class ValidationEngine implements IOutputValidator {
     const actions: string[] = [];
 
     const parsed = this.parse(raw, actions);
-    const validated = this.validator.validate(parsed);
+    const { value: validated, droppedFindings } = this.validator.validate(parsed);
+    if (droppedFindings > 0) {
+      actions.push(`dropped ${droppedFindings} malformed finding(s)`);
+    }
     const normalized = this.normalizer.normalize(validated);
     actions.push(...normalized.actions);
 
