@@ -51,6 +51,7 @@ import { SemanticScoreCache } from "../src/benchmark/matching/semantic-score-cac
 import { CachedSemanticMatcher } from "../src/benchmark/matching/cached-semantic-matcher.ts";
 import { JudgeScorePrecomputer } from "../src/benchmark/matching/judge-score-precomputer.ts";
 import { DEFAULT_JUDGE_CONFIG } from "../src/benchmark/matching/judge-prompt.ts";
+import { ProviderRateLimitError } from "../src/llm/errors.ts";
 
 if (LLM_CONFIG.provider !== "bedrock") {
   console.error("judge:eval needs the Bedrock provider (live). Unset LLM_PROVIDER=mock.");
@@ -131,7 +132,27 @@ if (process.env.CACHE_IN && existsSync(process.env.CACHE_IN)) {
   cache = new SemanticScoreCache();
   console.log(`\nJUDGE — ${JUDGE_MODEL} over candidate pairs (same file, no line overlap)...`);
   const precomputer = new JudgeScorePrecomputer(provider, { ...DEFAULT_JUDGE_CONFIG, modelId: JUDGE_MODEL });
-  await precomputer.precompute(runs, cache);
+  // Bedrock throttles bursts; the precomputer is resumable (skips cached pairs),
+  // so on a rate limit we checkpoint the cache, back off, and resume. Needed for
+  // large runs (the full campaign would otherwise die mid-judge).
+  const maxAttempts = 8;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await precomputer.precompute(runs, cache);
+      break;
+    } catch (error) {
+      if (error instanceof ProviderRateLimitError && attempt < maxAttempts) {
+        const waitMs = Math.min(30_000, 2_000 * 2 ** (attempt - 1));
+        if (process.env.CACHE_OUT) {
+          writeFileSync(process.env.CACHE_OUT, JSON.stringify(cache.toJSON(), null, 2));
+        }
+        console.log(`  rate limited (attempt ${attempt}/${maxAttempts}); backing off ${waitMs}ms and resuming...`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+      throw error;
+    }
+  }
   if (process.env.CACHE_OUT) {
     writeFileSync(process.env.CACHE_OUT, JSON.stringify(cache.toJSON(), null, 2));
     console.log(`persisted judge cache → ${process.env.CACHE_OUT}`);
