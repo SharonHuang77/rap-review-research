@@ -15,6 +15,8 @@ export interface EvaluationExportRow {
   readonly criticalSeverityCount: number;
   readonly averageConfidence: number;
   readonly latencyMs: number;
+  readonly criticalPathLatencyMs: number;
+  readonly truncatedCallCount: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;
@@ -38,6 +40,8 @@ export function toEvaluationExportRow(
     criticalSeverityCount: metrics.reviewQuality.criticalSeverityCount,
     averageConfidence: metrics.reviewQuality.averageConfidence,
     latencyMs: metrics.operationalCost.latencyMs,
+    criticalPathLatencyMs: metrics.operationalCost.criticalPathLatencyMs,
+    truncatedCallCount: metrics.operationalCost.truncatedCallCount,
     inputTokens: metrics.operationalCost.inputTokens,
     outputTokens: metrics.operationalCost.outputTokens,
     estimatedCostUsd: metrics.operationalCost.estimatedCostUsd,

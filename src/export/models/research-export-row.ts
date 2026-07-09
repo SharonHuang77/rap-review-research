@@ -17,6 +17,8 @@ export interface ResearchExportRow {
   readonly averageConfidence: number;
   readonly duplicateFindingCount: number;
   readonly latencyMs: number;
+  readonly criticalPathLatencyMs: number;
+  readonly truncatedCallCount: number;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly estimatedCostUsd: number;
@@ -44,6 +46,8 @@ export const STABLE_COLUMNS: readonly (keyof ResearchExportRow)[] = [
   "averageConfidence",
   "duplicateFindingCount",
   "latencyMs",
+  "criticalPathLatencyMs",
+  "truncatedCallCount",
   "inputTokens",
   "outputTokens",
   "estimatedCostUsd",
@@ -76,6 +80,8 @@ export function toResearchExportRows(
         averageConfidence: metrics.reviewQuality.averageConfidence,
         duplicateFindingCount: metrics.reviewQuality.duplicateFindingCount,
         latencyMs: metrics.operationalCost.latencyMs,
+        criticalPathLatencyMs: metrics.operationalCost.criticalPathLatencyMs,
+        truncatedCallCount: metrics.operationalCost.truncatedCallCount,
         inputTokens: metrics.operationalCost.inputTokens,
         outputTokens: metrics.operationalCost.outputTokens,
         estimatedCostUsd: metrics.operationalCost.estimatedCostUsd,

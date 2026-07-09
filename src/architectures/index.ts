@@ -24,3 +24,9 @@ export {
   createConsensusArchitecture,
 } from "./consensus/index.ts";
 export type { ConsensusArchitectureDependencies } from "./consensus/index.ts";
+
+// Offline replay of deterministic synthesis from persisted artifacts (B1).
+export {
+  replayHierarchicalFindings,
+  replayConsensusFindings,
+} from "./replay.ts";

@@ -8,6 +8,7 @@ import type { RawDiffStorage } from "../../storage/raw-diff-storage.ts";
 import type { LLMConfig } from "../../config/llm.ts";
 
 import { LLM_CONFIG } from "../../config/llm.ts";
+import { isTruncatedStopReason } from "../../llm/models/llm-review-response.ts";
 
 /**
  * The specialist plugin contract, shared by Hierarchical and Consensus.
@@ -91,6 +92,7 @@ export class LlmReviewSpecialist implements IReviewSpecialist {
       inputTokens: response.inputTokens,
       outputTokens: response.outputTokens,
       estimatedCostUsd: response.estimatedCostUsd,
+      truncated: isTruncatedStopReason(response.stopReason),
     };
   }
 }
@@ -167,6 +169,7 @@ export function toReviewFinding(
     category: f.category.toLowerCase(),
     file: f.file,
     line: f.line,
+    ...(typeof f.snippet === "string" ? { snippet: f.snippet } : {}),
     description: f.description,
     recommendation: f.recommendation,
     confidence: Math.max(0, Math.min(1, f.confidence)),

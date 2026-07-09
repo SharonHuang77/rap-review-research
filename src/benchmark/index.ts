@@ -45,6 +45,7 @@ export type {
 export { IssueMatcher } from "./matching/issue-matcher.ts";
 export type { ISemanticMatcher } from "./matching/semantic-matcher.ts";
 export { NoopSemanticMatcher } from "./matching/semantic-matcher.ts";
+export { maxBipartiteMatching } from "./matching/bipartite-matcher.ts";
 
 // Evaluation.
 export type { GroundTruthEvaluatorDependencies } from "./ground-truth-evaluator.ts";
