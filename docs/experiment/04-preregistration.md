@@ -120,19 +120,22 @@ the freeze.
 | Dataset | Purpose | Target PRs |
 |---|---|---|
 | Qodo PR-Review-Bench | objective correctness (P/R/F1/localization) | **100** (full set) |
-| SWE-PRBench | human-reviewer agreement | 25 |
+| SWE-PRBench | human-reviewer agreement | 50 (full Martian set) |
 | RAP Portal | industrial case study (operational metrics only) | 15 |
 
 Each PR is reviewed by the four confirmatory arms, each run **3 times** (§3.3);
 the exploratory `agentless-large` arm runs on Qodo only. Qodo is the primary
 confirmatory benchmark; SWE-PRBench and RAP are secondary.
 
-**✅ DECISION 3 — RESOLVED (Qodo 100 / SWE-PRBench 25 / RAP 15; power below).**
+**✅ DECISION 3 — RESOLVED (Qodo 100 / SWE-PRBench 50 / RAP 15; power below).**
 - **Qodo = 100 PRs** (the full public set — the roadmap's C6). It carries the
   primary confirmatory test (H2).
-- **SWE-PRBench = 25 PRs**, secondary; we acknowledge it is underpowered for a
-  confirmatory test on its own and report it as agreement evidence, not a primary
-  claim.
+- **SWE-PRBench = 50 PRs** (the full Martian set), secondary. Raised from 25 to
+  50 after the pilot: the exploratory SWE pilot suggested the specialization
+  contrast may run **opposite** to Qodo on human agreement (§3.4), so we power
+  the E2 comparison as well as the available data allows. Still reported as
+  agreement evidence, not a primary confirmatory claim (human comments are not
+  exhaustive ground truth — §6).
 - **RAP = 15 PRs**, descriptive only (operational metrics; no correctness claims).
 
 **Power justification (primary test, H2).** The primary test is a paired
