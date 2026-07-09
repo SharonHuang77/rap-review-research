@@ -6,8 +6,13 @@ import type { GroundTruthIssue } from "../models/ground-truth-issue.ts";
  * the fields the judge actually sees, so a change to any of them is a cache miss.
  */
 export function pairKey(finding: ReviewFinding, issue: GroundTruthIssue): string {
+  // NOTE: finding.line is intentionally EXCLUDED. A3 snippet-anchored
+  // localization re-anchors a finding's line before matching ({ ...finding,
+  // line }); keying on line would make those lookups miss the score stored
+  // under the original line. file + title + description (+ issue fields) still
+  // identify the semantic pair, and this is stable across line re-anchoring.
   return JSON.stringify([
-    finding.file, finding.line, finding.title, finding.description,
+    finding.file, finding.title, finding.description,
     issue.file, issue.lineStart, issue.lineEnd, issue.title ?? "", issue.description ?? "",
   ]);
 }

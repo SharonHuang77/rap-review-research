@@ -22,7 +22,14 @@ test("get returns undefined before set, the score after", () => {
 });
 
 test("different pairs get different keys", () => {
-  assert.notEqual(pairKey(finding(), issue()), pairKey(finding({ line: 50 }), issue()));
+  assert.notEqual(pairKey(finding({ title: "A" }), issue()), pairKey(finding({ title: "B" }), issue()));
+});
+
+test("changing only the finding line does NOT change the key (A2/A3 seam)", () => {
+  assert.equal(pairKey(finding({ line: 10 }), issue()), pairKey(finding({ line: 999 }), issue()));
+  const c = new SemanticScoreCache();
+  c.set(finding({ line: 10 }), issue(), 0.9);
+  assert.equal(c.get(finding({ line: 999 }), issue()), 0.9); // re-anchored finding still hits
 });
 
 test("toJSON/fromJSON round-trips", () => {
