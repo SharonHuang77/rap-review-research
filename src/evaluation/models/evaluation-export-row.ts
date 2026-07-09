@@ -22,7 +22,13 @@ export interface EvaluationExportRow {
   readonly estimatedCostUsd: number;
   readonly llmCalls: number;
   readonly messageCount: number;
+  /** Supporting heuristic (severity + confidence + volume), NOT a correctness metric. */
   readonly evidenceScore: number;
+  /** Industrial-verification signals (RAP Portal); present only when computed. */
+  readonly architectureAgreement?: number;
+  readonly staticAnalysisAgreement?: number;
+  readonly llmJudgeValidation?: number;
+  readonly laterFixRate?: number;
 }
 
 /**
@@ -48,5 +54,9 @@ export function toEvaluationExportRow(
     llmCalls: metrics.operationalCost.llmCalls,
     messageCount: metrics.operationalCost.messageCount,
     evidenceScore: metrics.researchEvidence.evidenceScore,
+    architectureAgreement: metrics.researchEvidence.architectureAgreement,
+    staticAnalysisAgreement: metrics.researchEvidence.staticAnalysisAgreement,
+    llmJudgeValidation: metrics.researchEvidence.llmJudgeValidation,
+    laterFixRate: metrics.researchEvidence.laterFixRate,
   };
 }

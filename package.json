@@ -29,6 +29,7 @@
     "campaign:live": "node scripts/campaign-live.ts",
     "verify:replay": "node scripts/verify-replay.ts",
     "smoke:bedrock": "node scripts/smoke-bedrock.ts",
+    "smoke:rap": "node scripts/rap-portal-smoke.ts",
     "check": "npm run typecheck && npm run test"
   },
   "devDependencies": {
