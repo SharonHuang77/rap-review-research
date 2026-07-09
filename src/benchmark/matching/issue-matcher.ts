@@ -65,6 +65,9 @@ export class IssueMatcher {
   }
 
   public match(finding: ReviewFinding, issue: GroundTruthIssue): MatchResult {
+    // NOTE: fileMatch and lineOverlap are computed unconditionally here (before
+    // any gate). JudgeScorePrecomputer.isCandidatePair reuses this via a bare
+    // IssueMatcher and depends on that — keep them unconditional.
     const fileMatch = normalizePath(finding.file) === normalizePath(issue.file);
     const lineOverlap =
       finding.line >= issue.lineStart && finding.line <= issue.lineEnd;
