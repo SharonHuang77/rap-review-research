@@ -46,6 +46,15 @@ export { IssueMatcher } from "./matching/issue-matcher.ts";
 export type { ISemanticMatcher } from "./matching/semantic-matcher.ts";
 export { NoopSemanticMatcher } from "./matching/semantic-matcher.ts";
 export { maxBipartiteMatching } from "./matching/bipartite-matcher.ts";
+export type { JudgeConfig } from "./matching/judge-prompt.ts";
+export {
+  buildJudgePrompt,
+  parseJudgeScore,
+  DEFAULT_JUDGE_CONFIG,
+} from "./matching/judge-prompt.ts";
+export { pairKey, SemanticScoreCache } from "./matching/semantic-score-cache.ts";
+export { CachedSemanticMatcher } from "./matching/cached-semantic-matcher.ts";
+export { JudgeScorePrecomputer } from "./matching/judge-score-precomputer.ts";
 
 // Evaluation.
 export type { GroundTruthEvaluatorDependencies } from "./ground-truth-evaluator.ts";

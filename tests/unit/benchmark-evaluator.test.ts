@@ -6,7 +6,10 @@ import type { BenchmarkRun, GroundTruthIssue } from "../../src/benchmark/index.t
 import {
   GroundTruthEvaluator,
   BenchmarkEvaluator,
+  IssueMatcher,
 } from "../../src/benchmark/index.ts";
+import { SemanticScoreCache } from "../../src/benchmark/matching/semantic-score-cache.ts";
+import { CachedSemanticMatcher } from "../../src/benchmark/matching/cached-semantic-matcher.ts";
 
 function finding(file: string, line: number): ReviewFinding {
   return {
@@ -216,6 +219,21 @@ test("BenchmarkEvaluator macro-summarizes results per architecture", () => {
   const hier = summary.find((s) => s.architecture === "hierarchical")!;
   assert.equal(hier.instanceCount, 1);
   assert.equal(hier.meanRecall, 1);
+});
+
+test("semantic cache rescues a wrong-line finding, raising recall (A2)", () => {
+  const gt: GroundTruthIssue[] = [{ id: "g1", file: "src/a.ts", lineStart: 10, lineEnd: 12 }];
+  const wrongLine = finding("src/a.ts", 99); // right file, wrong line
+
+  const strict = new GroundTruthEvaluator().evaluate(run([wrongLine], gt));
+  assert.equal(strict.recall, 0);
+
+  const cache = new SemanticScoreCache();
+  cache.set(wrongLine, gt[0]!, 0.9);
+  const semantic = new GroundTruthEvaluator({
+    matcher: new IssueMatcher({ semanticMatcher: new CachedSemanticMatcher(cache), semanticThreshold: 0.7 }),
+  }).evaluate(run([wrongLine], gt));
+  assert.equal(semantic.recall, 1);
 });
 
 function round(n: number): number {
