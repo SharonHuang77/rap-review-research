@@ -31,7 +31,7 @@ file pins the exact runtime configuration that `prompt-freeze-v1` (git tag) tags
 | Dataset | File / source | Subset |
 |---|---|---|
 | Qodo PR-Review-Bench (E1) | `data/benchmark/qodo.json` | 100 PRs (full; 543 located ground-truth issues) |
-| SWE-PRBench / Martian (E2) | `data/benchmark/swe-golden.json` | 25 of 50 PRs (first 25 by dataset order) |
+| SWE-PRBench / Martian (E2) | `data/benchmark/swe-golden.json` | 50 PRs (full Martian set) |
 | RAP Portal (E3) | `logisticPM/portal` (live) | 15 PRs — operational/industrial-verification only, no correctness claims |
 
 ## Evaluation-side (replayable post-hoc; NOT frozen, but protocol pre-registered)
