@@ -118,6 +118,8 @@ const storage: IStorageEngine = {
 const evaluationEngine: IEvaluationEngine = {
   evaluate: () => ({}) as ExperimentMetrics,
   evaluateBatch: () => [],
+  evaluateIndustrial: () => [],
+  evaluateBatchIndustrial: () => [],
 };
 
 const exportService: IExportService = {
