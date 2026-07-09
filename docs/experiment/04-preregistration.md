@@ -154,14 +154,25 @@ Results are reported under **both** a strict location-only matcher and a
 semantic/LLM-judge matcher, and we state whether arm rankings are stable across
 the two.
 
-> **⚠ DECISION 4 — semantic matcher.** The LLM-judge/embedding semantic matcher
-> (roadmap A2) is **not yet implemented** (`NoopSemanticMatcher` today). Before
-> submission either (a) implement A2 and register the LLM-judge protocol
-> (different model family; report Cohen's κ vs a ~100-pair human-labeled
-> calibration set) as the primary matcher, or (b) register strict location
-> matching as primary and semantic as a robustness check. Recommendation: (a) —
-> Qodo's own methodology is LLM-as-judge, so strict-only would systematically
-> deflate recall.
+**✅ DECISION 4 — RESOLVED (implement A2 LLM-judge as primary matcher).**
+The semantic matcher is being implemented (roadmap A2): an LLM judge backed by a
+**Bedrock non-Anthropic model** (a different family than the Claude systems under
+test), applied as `matched = file AND (line overlap OR judge score ≥ τ)`. Strict
+location matching is reported alongside as a robustness check (dual-matcher
+stability). Judge scores are precomputed once and persisted (replayable at zero
+further cost).
+
+Calibration (validated at pilot time, before the frozen campaign), the
+no-human-labeling "three-pack":
+1. **Silver-label accuracy** — the judge's accuracy on automatically-labeled easy
+   cases (strict-overlap pairs = necessary positives; different-file pairs =
+   necessary negatives).
+2. **Inter-judge agreement** — a second Bedrock non-Anthropic model on the
+   calibration set; report Cohen's κ between judges.
+3. **Dual-matcher stability** — whether arm rankings hold under strict vs.
+   semantic matching.
+τ is calibrated on the pilot data. An optional ~50-pair human-labeled κ check
+may upgrade the evidence but is not required.
 
 ### 5.2 Statistical models
 - Unit of analysis: the PR (paired across arms). Primary test uses a
