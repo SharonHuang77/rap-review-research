@@ -30,6 +30,7 @@
     "verify:replay": "node scripts/verify-replay.ts",
     "smoke:bedrock": "node scripts/smoke-bedrock.ts",
     "smoke:rap": "node scripts/rap-portal-smoke.ts",
+    "judge:eval": "node scripts/benchmark-judge-eval.ts",
     "check": "npm run typecheck && npm run test"
   },
   "devDependencies": {
