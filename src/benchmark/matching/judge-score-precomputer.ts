@@ -6,26 +6,7 @@ import type { JudgeConfig } from "./judge-prompt.ts";
 import type { SemanticScoreCache } from "./semantic-score-cache.ts";
 
 import { buildJudgePrompt, parseJudgeScore } from "./judge-prompt.ts";
-
-function normalizePath(path: string): string {
-  return path.trim().replace(/^\.\//, "");
-}
-
-/**
- * A pair is worth judging only when the finding is in the ground-truth issue's
- * file but does NOT overlap its line span — the only case where a semantic score
- * can change `matched` (overlap already matches; a different file never matches).
- *
- * This MUST mirror `IssueMatcher`'s file+line match rule (same normalized file,
- * line within the issue's span): if that rule changes, this must change in
- * lockstep. A shared helper will be extracted in the next task; for now this
- * comment documents the coupling.
- */
-function isCandidatePair(finding: ReviewFinding, issue: GroundTruthIssue): boolean {
-  const fileMatch = normalizePath(finding.file) === normalizePath(issue.file);
-  const lineOverlap = finding.line >= issue.lineStart && finding.line <= issue.lineEnd;
-  return fileMatch && !lineOverlap;
-}
+import { IssueMatcher } from "./issue-matcher.ts";
 
 /**
  * Async pre-pass (A2): fills a {@link SemanticScoreCache} with judge scores for
@@ -35,10 +16,22 @@ function isCandidatePair(finding: ReviewFinding, issue: GroundTruthIssue): boole
 export class JudgeScorePrecomputer {
   private readonly provider: ILLMProvider;
   private readonly config: JudgeConfig;
+  private readonly locationMatcher = new IssueMatcher();
 
   public constructor(provider: ILLMProvider, config: JudgeConfig) {
     this.provider = provider;
     this.config = config;
+  }
+
+  /**
+   * A pair is worth judging only when the finding is in the issue's file but its
+   * line does NOT overlap the issue span — the only case a semantic score can
+   * flip `matched`. Delegates to IssueMatcher so this stays in lockstep with the
+   * evaluator's own file/line rule (no duplicated predicate).
+   */
+  private isCandidatePair(finding: ReviewFinding, issue: GroundTruthIssue): boolean {
+    const result = this.locationMatcher.match(finding, issue);
+    return result.fileMatch && !result.lineOverlap;
   }
 
   /**
@@ -54,7 +47,7 @@ export class JudgeScorePrecomputer {
     for (const run of runs) {
       for (const finding of run.producedFindings) {
         for (const issue of run.groundTruth) {
-          if (!isCandidatePair(finding, issue) || cache.has(finding, issue)) {
+          if (!this.isCandidatePair(finding, issue) || cache.has(finding, issue)) {
             continue;
           }
           const response = await this.provider.review(

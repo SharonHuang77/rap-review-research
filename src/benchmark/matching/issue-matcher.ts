@@ -31,6 +31,12 @@ export interface IssueMatcherOptions {
   /** Also require severity equality when both sides have one. Default false. */
   readonly requireSeverityMatch?: boolean;
   readonly semanticMatcher?: ISemanticMatcher;
+  /**
+   * Minimum semantic score to rescue a same-file finding whose line does NOT
+   * overlap the issue span (A2). Default 0.7. Ignored when the semantic matcher
+   * returns undefined for the pair.
+   */
+  readonly semanticThreshold?: number;
 }
 
 /** Normalize a path for comparison: trim and drop a leading `./`. */
@@ -48,12 +54,14 @@ export class IssueMatcher {
   private readonly requireCategoryMatch: boolean;
   private readonly requireSeverityMatch: boolean;
   private readonly semanticMatcher: ISemanticMatcher;
+  private readonly semanticThreshold: number;
 
   public constructor(options: IssueMatcherOptions = {}) {
     this.requireLineOverlap = options.requireLineOverlap ?? true;
     this.requireCategoryMatch = options.requireCategoryMatch ?? false;
     this.requireSeverityMatch = options.requireSeverityMatch ?? false;
     this.semanticMatcher = options.semanticMatcher ?? new NoopSemanticMatcher();
+    this.semanticThreshold = options.semanticThreshold ?? 0.7;
   }
 
   public match(finding: ReviewFinding, issue: GroundTruthIssue): MatchResult {
@@ -70,10 +78,12 @@ export class IssueMatcher {
       issue.severity !== undefined ? finding.severity === issue.severity : undefined;
 
     const semanticScore = this.semanticMatcher.score(finding, issue);
+    const semanticPass =
+      semanticScore !== undefined && semanticScore >= this.semanticThreshold;
 
     let matched = fileMatch;
     if (this.requireLineOverlap) {
-      matched = matched && lineOverlap;
+      matched = matched && (lineOverlap || semanticPass);
     }
     if (this.requireCategoryMatch && categoryMatch !== undefined) {
       matched = matched && categoryMatch;
