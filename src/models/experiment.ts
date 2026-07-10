@@ -79,6 +79,9 @@ export interface RunExperimentResult {
   readonly status: ExperimentStatus;
   /** True when an existing experiment was returned without re-executing. */
   readonly reusedExisting: boolean;
+  /** On a failed status, the underlying error message (so callers can classify
+   * transient vs terminal — e.g. throttling should be retried). */
+  readonly error?: string;
 }
 
 /**
