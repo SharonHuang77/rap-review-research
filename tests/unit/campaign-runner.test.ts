@@ -137,6 +137,7 @@ function baseDeps(executor: IExperimentExecutor): CampaignRunnerDependencies {
     exportService,
     executor,
     clock: new FixedClock(),
+    retryBackoffMs: 0, // no real waits in tests
   };
 }
 

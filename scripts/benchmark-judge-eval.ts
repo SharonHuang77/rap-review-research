@@ -41,7 +41,7 @@ import { BedrockProvider } from "../src/llm/provider/bedrock-provider.ts";
 import { LLM_CONFIG } from "../src/config/llm.ts";
 
 import { BenchmarkLoader } from "../src/campaign/index.ts";
-import { CampaignRunner, InMemoryManifestStore, ProgressReporter } from "../src/campaign/index.ts";
+import { CampaignRunner, InMemoryManifestStore, ProgressReporter, RetryPolicy } from "../src/campaign/index.ts";
 import type { BenchmarkDataset } from "../src/benchmark/index.ts";
 import type { BenchmarkRun } from "../src/benchmark/models/benchmark-run.ts";
 import type { BenchmarkResult } from "../src/benchmark/models/benchmark-result.ts";
@@ -105,6 +105,9 @@ if (process.env.RUNS_IN && existsSync(process.env.RUNS_IN)) {
     storage: experimentCtx.storage,
     reporter: new ProgressReporter({ sink: (line) => console.log(line) }),
     manifestStore: new InMemoryManifestStore(),
+    // More attempts + exponential backoff to ride out Bedrock throttling on a
+    // long campaign (default 3 was too few under sustained load).
+    retryPolicy: new RetryPolicy(6),
   });
 
   console.log(`GENERATE — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}\n`);

@@ -27,7 +27,7 @@ import { BedrockProvider } from "../src/llm/provider/bedrock-provider.ts";
 import { LLM_CONFIG } from "../src/config/llm.ts";
 import { ProviderRateLimitError, ProviderTimeoutError } from "../src/llm/errors.ts";
 
-import { CampaignRunner, InMemoryManifestStore, ProgressReporter } from "../src/campaign/index.ts";
+import { CampaignRunner, InMemoryManifestStore, ProgressReporter, RetryPolicy } from "../src/campaign/index.ts";
 import type { BenchmarkDataset, BenchmarkInstance } from "../src/benchmark/index.ts";
 import type { GoldenComment } from "../src/benchmark/models/golden-comment.ts";
 import { SweGoldenAdapter } from "../src/benchmark/adapters/swe-golden-adapter.ts";
@@ -100,6 +100,8 @@ const runner = new CampaignRunner({
   storage: experimentCtx.storage,
   reporter: new ProgressReporter({ sink: (line) => console.log(line) }),
   manifestStore: new InMemoryManifestStore(),
+  // More attempts + exponential backoff to ride out Bedrock throttling.
+  retryPolicy: new RetryPolicy(6),
 });
 
 console.log(`SWE coverage — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}, ${instances.length} PR(s)\n`);
