@@ -55,3 +55,7 @@ file pins the exact runtime configuration that `prompt-freeze-v1` (git tag) tags
 - **Confirmatory data collection begins only after OSF submission.** All runs
   prior to this tag (the N=20 Qodo and N=5/N=20 SWE pilots) are exploratory and
   excluded from the confirmatory analysis (pre-registration §3.4).
+- **Runs/instance:** the 3 runs/instance are supplied at launch via
+  `RUNS_PER_INSTANCE=3` (env knob added to `judge:eval`/`swe:eval` after the tag;
+  the frozen default behavior is unchanged — default 1). This is a conformance
+  knob enabling the registered 3-run protocol, not a change to it.

@@ -60,6 +60,9 @@ if (LLM_CONFIG.provider !== "bedrock") {
 
 const DATA_DIR = resolve(process.env.BENCHMARK_DATA_DIR ?? "data/benchmark");
 const LIMIT = Math.max(1, Number(process.env.BENCHMARK_LIMIT ?? 1));
+// Chunked/resumable runs: process instances [OFFSET, OFFSET+LIMIT) so a long
+// campaign can be split into token-sized chunks (shared CACHE accumulates).
+const OFFSET = Math.max(0, Number(process.env.BENCHMARK_OFFSET ?? 0));
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
 
@@ -75,11 +78,11 @@ if (process.env.RUNS_IN && existsSync(process.env.RUNS_IN)) {
   const datasets: BenchmarkDataset[] = [];
   const qodoPath = resolve(DATA_DIR, "qodo.json");
   if (existsSync(qodoPath)) {
-    datasets.push(subset(loader.loadQodo(JSON.parse(readFileSync(qodoPath, "utf8"))), LIMIT));
+    datasets.push(subset(loader.loadQodo(JSON.parse(readFileSync(qodoPath, "utf8"))), LIMIT, OFFSET));
   }
   const swePath = resolve(DATA_DIR, "swe.json");
   if (existsSync(swePath)) {
-    datasets.push(subset(loader.loadSwe(JSON.parse(readFileSync(swePath, "utf8"))), LIMIT));
+    datasets.push(subset(loader.loadSwe(JSON.parse(readFileSync(swePath, "utf8"))), LIMIT, OFFSET));
   }
   if (datasets.length === 0) {
     console.error(`No datasets under ${DATA_DIR}. See src/benchmark/README.md.`);
@@ -108,6 +111,9 @@ if (process.env.RUNS_IN && existsSync(process.env.RUNS_IN)) {
   const report = await runner.run(datasets, {
     campaignId: "judge-eval",
     architectures: ["agentless", "generalists-3", "hierarchical", "consensus"],
+    // Registered protocol (pre-reg §3.3, freeze manifest): 3 runs/instance for
+    // the confirmatory campaign. Default 1 for cheap pilots; set RUNS_PER_INSTANCE=3.
+    runsPerInstance: Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 1)),
     modelVersion: LLM_CONFIG.defaultModel,
     promptVersion: "v1",
     workflowVersion: "workflow-v1",
@@ -194,6 +200,6 @@ function macro(results: BenchmarkResult[]): { p: number; r: number; f1: number }
   };
 }
 
-function subset(dataset: BenchmarkDataset, limit: number): BenchmarkDataset {
-  return { ...dataset, instances: dataset.instances.slice(0, limit) };
+function subset(dataset: BenchmarkDataset, limit: number, offset = 0): BenchmarkDataset {
+  return { ...dataset, instances: dataset.instances.slice(offset, offset + limit) };
 }
