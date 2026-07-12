@@ -132,6 +132,25 @@ Structured scoring genuinely tracks truth where binary judging did not. Note thi
 
 **F1: the signal is too weak to cash in.** Best rows per arm (semantic F1): agentless V3 ≤ 0.47 (< baseline 0.49 — it trims true findings from an already-precise arm); generalists-3 V3 τ-sweep 0.25→0.33 (≫ V2's 0.26 at high τ, still ≪ V1 k=2's 0.48); every V1k2+V3 combo ≤ V1 k=2 alone. A 0.10 mean separation with heavy overlap gives no threshold that beats recurrence filtering. **Ranking of verifiers on this data: V1 (free, external consistency) > V3 (structured judge, AUC 0.68) > V2 (binary judge, AUC ~0.5) > V0.**
 
+## Heterogeneous-team experiment (2026-07-12, `npm run hetero:eval`)
+
+Hypothesis: cross-MODEL corroboration (Haiku + DeepSeek V3.2 + Llama 3.3, one agentless run each, same frozen prompt) beats within-model corroboration. **Not supported — and the two failure mechanisms matter more than the null:**
+
+| team (semantic) | f/run | P | R | F1 |
+|---|---|---|---|---|
+| haiku single (baseline) | 4.5 | 0.55 | 0.51 | **0.49** |
+| deepseek single | 2.9 | 0.37 | 0.31 | 0.32 |
+| llama single | 1.7 | 0.19 | 0.12 | 0.14 |
+| homo haiku V1 k=2 | 4.4 | 0.55 | 0.50 | **0.49** |
+| **HETERO V0 union** | 9.3 | 0.35 | **0.65** | 0.43 |
+| **HETERO V1 k=2** | **0.1** | – | 0.02 | 0.03 |
+
+1. **Prompt–model transfer failure.** The frozen prompt is Haiku-tuned: DeepSeek solo F1 0.32 and Llama 0.14 (fewer findings, 1 JSON-parse run failure) — the added "team members" were weak *under this prompt*, independent of any teaming effect. A fair heterogeneity test needs per-model prompt adaptation first.
+2. **The corroboration detector is lexically biased.** Cross-family V1 k=2 kept **2 clusters total** across 21 instances (0.1 findings/run): A4 dedup matches on title-token Jaccard ≥ 0.5 + line ±2, which same-model temp-0 re-runs pass trivially (near-identical wording) but different families almost never do — they phrase the same issue differently. **Within-model "recurrence" partly measures lexical stability, not independent confirmation.** Cross-model corroboration requires a *semantic* finding-to-finding matcher (A2-style judge or embeddings), which doesn't exist in the pipeline yet.
+3. **The one real positive: diversity is genuine.** The 3-family union hits **R 0.65 at only 9.3 findings/run** (homo-Haiku union: 0.52 at 5.3) — one run per family buys more coverage than three re-runs of one model. The coverage is there; we simply lack the cross-model matcher to harvest it via recurrence.
+
+**Verdict:** naive heterogeneity (foreign prompt + lexical clustering) fails; the informative failure pinpoints the two prerequisites — per-model prompt adaptation and semantic cross-model finding matching — for the real test. Hetero-singleton golden-match (37%) vs homo-singleton (26%) further hints member-diverse pools are higher-quality per finding.
+
 **Where doc-08's thesis lands after V0–V3:**
 1. Verifier strength governs the value of extra agents — confirmed in *sign* (V0 0.23 → V1 0.48) and in *signal* (AUC 0.5 → 0.68 with structure).
 2. But on this benchmark the only verifier strong enough to matter is **external consistency (recurrence)**, not content judgment — even structured. H-A (multi-agent F1 > single-pass) remains **unmet**; consensus V1 k=3 keeps the +6pt-recall-at-equal-F1 operating point.

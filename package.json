@@ -34,7 +34,8 @@
     "swe:eval": "node scripts/benchmark-swe-eval.ts",
     "check": "npm run typecheck && npm run test",
     "bon:eval": "node scripts/verifier-bon-eval.ts",
-    "golden:completeness": "node scripts/golden-completeness.ts"
+    "golden:completeness": "node scripts/golden-completeness.ts",
+    "hetero:eval": "node scripts/hetero-team-eval.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
