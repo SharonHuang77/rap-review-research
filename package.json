@@ -32,7 +32,8 @@
     "smoke:rap": "node scripts/rap-portal-smoke.ts",
     "judge:eval": "node scripts/benchmark-judge-eval.ts",
     "swe:eval": "node scripts/benchmark-swe-eval.ts",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "bon:eval": "node scripts/verifier-bon-eval.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
