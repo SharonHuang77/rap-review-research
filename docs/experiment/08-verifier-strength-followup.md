@@ -71,3 +71,26 @@ Data: `phase2-val-runs.json` — the clean Phase-2 validation batch (21 instance
 4. **Headroom for stronger verifiers (V2/V3) is real**: the generalists-3 union hits **R 0.76** — the candidate pool contains far more true findings than V1's crude multiplicity filter keeps (R 0.49). A judge-based verifier that filters FPs *without* requiring recurrence targets that gap. This is the argument for funding the V2/V3 rungs.
 
 **Limits:** exploratory replay; 21 instances (validation batch), macro noise; k-grid only {1,2,3}; single model (Haiku); NOT part of the registered confirmatory analysis.
+
+## V2 results — DeepSeek V3.2 binary judge (2026-07-12, `VERIFIER_MODEL=deepseek.v3.2`)
+
+Non-circular triangle: generation = Haiku (SUT), semantic-match judge = Llama, **verifier = DeepSeek V3.2** — no family judges its own output. DeepSeek judged 1,181 unique pooled findings: **981 real / 200 rejected (17% rejection).** F1(sem), key rows:
+
+| variant | findings/run | P(sem) | R(sem) | **F1(sem)** |
+|---|---|---|---|---|
+| agentless single (baseline) | 4.5 | 0.55 | 0.51 | **0.49** |
+| generalists-3 **V1 k=2** (free) | 4.3 | 0.51 | 0.49 | **0.48** |
+| generalists-3 **V2** (DeepSeek) | 24.3 | 0.17 | 0.72 | 0.26 |
+| consensus **V1 k=3** (free) | 6.6 | 0.46 | 0.57 | **0.48** |
+| consensus **V2** (DeepSeek) | 10.0 | 0.30 | 0.59 | 0.36 |
+| consensus **V1k2+V2** | 7.2 | 0.42 | 0.57 | 0.45 |
+
+**V2 did NOT help — a single binary LLM judgment is a *weak* verifier here.**
+1. **Too lenient:** rejected only 17%; the multi-agent arms' false positives mostly survived → precision barely moved (generalists-3 0.14→0.17 vs V1's 0.51). Cheap self-consistency filtered far better.
+2. **It even removed true findings:** V1k2+V2 < V1k2 alone (generalists-3 0.48→0.43) — layering the judge on top of self-consistency *lost* recall without buying precision.
+3. **This is exactly the LLM-as-a-Verifier premise:** naive binary judging is weak; strength needs continuous scores + repeated evaluation (K) + criteria decomposition (C). **V2's failure is the motivation for V3, not evidence against verifiers.**
+4. **Metric confound (important):** precision is measured vs. the golden PR comments, which are **incomplete**. A validity-verifier that correctly *keeps* a real-but-unlisted finding still scores it as a false positive. V1 helps not because it judges validity but because **recurrence selects for salience**, which correlates with what humans flagged. So "precision-vs-golden" understates any content verifier; a pseudo-golden (union of arms) or a manually-adjudicated sample is needed to score V2/V3 fairly.
+
+**Refined thesis:** verifier strength matters, but strength = **structure** (self-consistency; or continuous + K + C), **not** a strong model making one binary call. **H-A remains UNDEMONSTRATED:** the best multi-agent config (V1) *ties* agentless (~0.48–0.49), doesn't beat it. The one real multi-agent edge stays the **operating point** — consensus V1 k=3 holds +6pt recall (0.57 vs 0.51) at equal F1.
+
+**Next rungs:** V3 = LLM-as-a-Verifier proper (continuous score + criteria decomposition + K), which the V2 null specifically motivates; a stricter/criteria-decomposed V2 prompt; and a fairer precision target (pseudo-golden or sampled human adjudication) to remove the golden-incompleteness confound. (Caveat: V2's leniency is partly prompt-sensitive — a single agreeable binary judgment; the structured V3 method is the principled fix.)
