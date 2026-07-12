@@ -16,11 +16,18 @@
  * generation = Haiku (frozen SUT) and semantic matching = Llama, a DeepSeek
  * verifier closes a NON-CIRCULAR triangle: no family judges its own output.
  *
+ *   V3      structured continuous verifier (LLM-as-a-Verifier style): 3
+ *           adversarial criteria x K stochastic samples -> mean score in [0,1],
+ *           thresholded at a swept tau. Panel = mean over V3_MODELS families.
+ *
  * Run:  RUNS_IN=<runs.json> CACHE_IN=<cache.json> npm run bon:eval
  * Env:  SEMANTIC_THRESHOLD (=0.7), BON_OUT (optional JSON report)
  *       VERIFIER_MODEL (e.g. deepseek.v3.2 — enables V2)
- *       VERIFIER_CACHE (verdict cache JSON, read+write)
- *       BENCHMARK_DATA_DIR (=data/benchmark — diffs for the verifier)
+ *       VERIFIER_CACHE (V2 verdict cache JSON, read+write)
+ *       V3_MODELS (comma-separated model ids — enables V3), V3_K (=3),
+ *       V3_CACHE (V3 raw-score cache JSON, read+write)
+ *       BON_INSTANCES (comma-separated instanceId filter — smoke runs)
+ *       BENCHMARK_DATA_DIR (=data/benchmark — diffs for the verifiers)
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -56,7 +63,11 @@ if (!cacheIn || !existsSync(cacheIn)) {
   process.exit(1);
 }
 
-const runs = JSON.parse(readFileSync(runsIn, "utf8")) as BenchmarkRun[];
+const allRuns = JSON.parse(readFileSync(runsIn, "utf8")) as BenchmarkRun[];
+const instanceFilter = (process.env.BON_INSTANCES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const runs = instanceFilter.length
+  ? allRuns.filter((r) => instanceFilter.includes(r.instanceId))
+  : allRuns;
 const cache = SemanticScoreCache.fromJSON(JSON.parse(readFileSync(cacheIn, "utf8")));
 
 // --- pool findings per (architecture, instance), tracking run multiplicity ----
@@ -115,13 +126,8 @@ type VerdictMap = Record<string, boolean>; // findingKey -> judged real
 const findingKey = (instanceId: string, f: Finding): string =>
   `${VERIFIER_MODEL}|${instanceId}|${f.file}|${f.line}|${f.title}`;
 
-async function runVerifier(): Promise<{ verdicts: VerdictMap; calls: number; unparseable: number }> {
-  const verdicts: VerdictMap =
-    VERIFIER_CACHE && existsSync(VERIFIER_CACHE)
-      ? (JSON.parse(readFileSync(VERIFIER_CACHE, "utf8")) as VerdictMap)
-      : {};
-
-  // Diffs come from the benchmark data (persisted runs deliberately omit them).
+// Diffs come from the benchmark data (persisted runs deliberately omit them).
+function loadDiffs(): Map<string, string> {
   const loader = new BenchmarkLoader();
   const diffByInstance = new Map<string, string>();
   for (const [file, load] of [
@@ -134,6 +140,14 @@ async function runVerifier(): Promise<{ verdicts: VerdictMap; calls: number; unp
       diffByInstance.set(inst.instanceId, inst.rawDiff);
     }
   }
+  return diffByInstance;
+}
+
+async function runVerifier(diffByInstance: Map<string, string>): Promise<{ verdicts: VerdictMap; calls: number; unparseable: number }> {
+  const verdicts: VerdictMap =
+    VERIFIER_CACHE && existsSync(VERIFIER_CACHE)
+      ? (JSON.parse(readFileSync(VERIFIER_CACHE, "utf8")) as VerdictMap)
+      : {};
 
   const provider = new BedrockProvider();
   let calls = 0;
@@ -201,6 +215,157 @@ async function runVerifier(): Promise<{ verdicts: VerdictMap; calls: number; unp
   return { verdicts, calls, unparseable };
 }
 
+// --- V3: structured continuous verifier — criteria × K × (optional) panel ----
+// LLM-as-a-Verifier structure adapted for no-logprob Bedrock models: the
+// continuous score is the mean over C adversarial criteria × K stochastic
+// samples (temperature 0.7) × the model panel. Adversarial framing counters the
+// leniency V2 exhibited (a flat ~82% "real" rate).
+const V3_MODELS = (process.env.V3_MODELS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const V3_K = Math.max(1, Number(process.env.V3_K ?? 3));
+const V3_CACHE = process.env.V3_CACHE;
+// Rubric-anchored criteria. Early wording ("be adversarial: assume NO") made
+// the model emit degenerate uniform 0s/10s for whole batches — a binary gate,
+// not a score (the granularity failure LLM-as-a-Verifier §scaling warns about).
+// Anchored bands + an explicit differentiation instruction elicit a usable range.
+const V3_CRITERIA: readonly { id: string; question: string }[] = [
+  {
+    id: "evidence",
+    question:
+      "EVIDENCE: how directly does the DIFF ITSELF show the problem this finding describes? " +
+      "9-10 the problematic code is visibly introduced/changed in the diff; 6-8 the diff touches " +
+      "the relevant code and the problem is a reasonable direct reading; 3-5 only indirect or " +
+      "partial support in the diff; 0-2 the diff does not contain what the finding claims.",
+  },
+  {
+    id: "correct",
+    question:
+      "CORRECTNESS: how likely is the technical claim to be right about this code? " +
+      "9-10 a senior engineer would clearly agree; 6-8 plausibly right, minor doubts; " +
+      "3-5 questionable or overstated; 0-2 wrong or contradicted by the diff.",
+  },
+  {
+    id: "material",
+    question:
+      "MATERIALITY: would a maintainer act on this? 9-10 must-fix (bug, security, data loss); " +
+      "6-8 worth fixing (real defect or risky pattern); 3-5 minor/nice-to-have; " +
+      "0-2 style nitpick, duplicate noise, or speculation about untouched code.",
+  },
+];
+
+type V3Raw = Record<string, Record<string, number>>; // callKey -> { findingIdx(1-based) -> score 0-10 }
+
+async function runV3(
+  diffByInstance: Map<string, string>,
+): Promise<{ score: (instanceId: string, f: Finding) => number | undefined; calls: number }> {
+  const raw: V3Raw = V3_CACHE && existsSync(V3_CACHE) ? (JSON.parse(readFileSync(V3_CACHE, "utf8")) as V3Raw) : {};
+  const provider = new BedrockProvider();
+  let calls = 0;
+
+  interface BatchTask {
+    readonly arch: string;
+    readonly instanceId: string;
+    readonly reps: Finding[];
+  }
+  const tasks: BatchTask[] = [];
+  for (const [arch, archPools] of pools) {
+    for (const [instanceId, pool] of archPools) {
+      const reps = pool.clusters.map((c) => c.rep);
+      if (reps.length > 0) tasks.push({ arch, instanceId, reps });
+    }
+  }
+
+  async function scoreBatch(task: BatchTask): Promise<void> {
+    const diff = diffByInstance.get(task.instanceId);
+    if (!diff) return;
+    const list = task.reps
+      .map((f, i) => `${i + 1}. [${f.file}:${f.line}] ${f.title} — ${f.description ?? ""}`.slice(0, 700))
+      .join("\n");
+    for (const model of V3_MODELS) {
+      for (const criterion of V3_CRITERIA) {
+        for (let k = 1; k <= V3_K; k += 1) {
+          const callKey = `${model}|${criterion.id}|k${k}|${task.arch}|${task.instanceId}`;
+          if (callKey in raw) continue;
+          const userPrompt =
+            `UNIFIED DIFF:\n${diff.slice(0, DIFF_BUDGET)}\n\n` +
+            `CANDIDATE REVIEW FINDINGS (${task.reps.length}):\n${list}\n\n` +
+            `Score EVERY finding 0-10 on this ONE criterion:\n${criterion.question}\n\n` +
+            `The findings differ in quality — your scores MUST differentiate them; do not give ` +
+            `the whole list one uniform score. First jot one short comparative note (<=80 words), ` +
+            `then respond ONLY with JSON: {"notes":"...","scores":[{"n":1,"s":<0-10>}, ...]} ` +
+            `covering every finding number 1..${task.reps.length}.`;
+          for (let attempt = 1; attempt <= 4; attempt += 1) {
+            try {
+              const res = await provider.review({
+                modelId: model,
+                systemPrompt:
+                  "You are a skeptical, calibrated code-review verifier. Judge strictly against the provided diff; award points only for what survives scrutiny, and use the full 0-10 range to rank findings against each other. Output JSON only.",
+                userPrompt,
+                temperature: 0.7, // stochastic — K samples approximate the score distribution
+                maxTokens: 2500,
+              });
+              calls += 1;
+              let parsed: { scores?: { n?: number; s?: number }[] } | null = null;
+              try {
+                parsed = JSON.parse(res.text.slice(res.text.indexOf("{"), res.text.lastIndexOf("}") + 1));
+              } catch {
+                parsed = null;
+              }
+              const entry: Record<string, number> = {};
+              for (const s of parsed?.scores ?? []) {
+                if (typeof s.n === "number" && typeof s.s === "number") entry[String(s.n)] = Math.max(0, Math.min(10, s.s));
+              }
+              raw[callKey] = entry; // empty object = unparseable; recorded so we don't re-pay
+              break;
+            } catch (error) {
+              const transient = error instanceof ProviderRateLimitError || error instanceof ProviderTimeoutError;
+              if (!transient || attempt === 4) throw error;
+              await new Promise((r) => setTimeout(r, 2000 * 2 ** (attempt - 1)));
+            }
+          }
+        }
+      }
+    }
+    if (V3_CACHE) writeFileSync(V3_CACHE, JSON.stringify(raw)); // checkpoint per batch
+    console.log(`  V3 ${task.arch}/${task.instanceId}: ${task.reps.length} findings × ${V3_CRITERIA.length}C × K${V3_K} × ${V3_MODELS.length}M`);
+  }
+
+  // Small concurrency pool — batches are independent; 4 in flight is well under
+  // every model's requests-per-minute quota.
+  const queue = [...tasks];
+  await Promise.all(
+    Array.from({ length: 4 }, async () => {
+      for (let t = queue.shift(); t; t = queue.shift()) await scoreBatch(t);
+    }),
+  );
+  if (V3_CACHE) writeFileSync(V3_CACHE, JSON.stringify(raw));
+
+  // Aggregate: per finding, mean over criteria × K × models, normalized to [0,1].
+  const agg = new Map<string, number[]>(); // instanceId|file|line|title -> scores
+  for (const [arch, archPools] of pools) {
+    for (const [instanceId, pool] of archPools) {
+      pool.clusters.forEach((c, idx) => {
+        const fkey = `${instanceId}|${c.rep.file}|${c.rep.line}|${c.rep.title}`;
+        for (const model of V3_MODELS) {
+          for (const criterion of V3_CRITERIA) {
+            for (let k = 1; k <= V3_K; k += 1) {
+              const entry = raw[`${model}|${criterion.id}|k${k}|${arch}|${instanceId}`];
+              const s = entry?.[String(idx + 1)];
+              if (typeof s === "number") agg.set(fkey, [...(agg.get(fkey) ?? []), s / 10]);
+            }
+          }
+        }
+      });
+    }
+  }
+  return {
+    score: (instanceId, f) => {
+      const scores = agg.get(`${instanceId}|${f.file}|${f.line}|${f.title}`);
+      return scores?.length ? scores.reduce((a, x) => a + x, 0) / scores.length : undefined;
+    },
+    calls,
+  };
+}
+
 // --- evaluate: strict vs semantic, identical wiring to benchmark-judge-eval ---
 const strict = new GroundTruthEvaluator();
 const semantic = new GroundTruthEvaluator({
@@ -249,16 +414,31 @@ function pooledRuns(
 }
 
 async function main(): Promise<void> {
+  const needDiffs = Boolean(VERIFIER_MODEL) || V3_MODELS.length > 0;
+  const diffs = needDiffs ? loadDiffs() : new Map<string, string>();
+
   let verdicts: VerdictMap | null = null;
   if (VERIFIER_MODEL) {
     console.log(`\nV2 verifier: ${VERIFIER_MODEL} (batched per arch × instance, cached: ${VERIFIER_CACHE ?? "no"})`);
-    const res = await runVerifier();
+    const res = await runVerifier(diffs);
     verdicts = res.verdicts;
     console.log(`V2 done — ${res.calls} model calls, ${res.unparseable} abstained/unparseable (kept)`);
   }
 
+  let v3score: ((instanceId: string, f: Finding) => number | undefined) | null = null;
+  if (V3_MODELS.length > 0) {
+    console.log(`\nV3 verifier: ${V3_MODELS.join(" + ")} × ${V3_CRITERIA.length} criteria × K=${V3_K} (cached: ${V3_CACHE ?? "no"})`);
+    const res = await runV3(diffs);
+    v3score = res.score;
+    console.log(`V3 done — ${res.calls} model calls this run`);
+  }
+
   const judgedReal = (instanceId: string, c: Cluster): boolean =>
     verdicts?.[findingKey(instanceId, c.rep)] ?? true;
+  const v3Keep = (tau: number) => (c: Cluster, instanceId: string): boolean => {
+    const s = v3score?.(instanceId, c.rep);
+    return s === undefined ? true : s >= tau; // abstain -> keep
+  };
 
   const rows: Row[] = [];
   for (const arch of ARCHES) {
@@ -276,6 +456,49 @@ async function main(): Promise<void> {
         ),
       );
     }
+    if (v3score) {
+      for (const tau of [0.5, 0.6, 0.7]) {
+        rows.push(evaluateRow(`  ${arch} V3 τ=${tau}`, pooledRuns(arch, `v3t${tau}`, (c, id) => v3Keep(tau)(c, id))));
+      }
+      rows.push(
+        evaluateRow(
+          `  ${arch} V1k2+V3τ.6`,
+          pooledRuns(arch, "v1k2v3", (c, id) => c.runsWith.size >= 2 && v3Keep(0.6)(c, id)),
+        ),
+      );
+    }
+  }
+
+  // Discrimination diagnostic — the test V2 failed. Does the continuous V3
+  // score separate golden-matched from non-matched pooled findings?
+  if (v3score) {
+    const normPath = (p: string): string => p.trim().replace(/^\.\//, "");
+    const matched: number[] = [];
+    const unmatched: number[] = [];
+    for (const [, archPools] of pools) {
+      for (const [instanceId, pool] of archPools) {
+        const golden = pool.template.groundTruth;
+        for (const c of pool.clusters) {
+          const s = v3score(instanceId, c.rep);
+          if (s === undefined) continue;
+          const hits = golden.some(
+            (g) => normPath(g.file) === normPath(c.rep.file) && c.rep.line >= g.lineStart && c.rep.line <= g.lineEnd,
+          );
+          (hits ? matched : unmatched).push(s);
+        }
+      }
+    }
+    const mean = (xs: number[]): number => (xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN);
+    // P(score_matched > score_unmatched) — a simple AUC over all pairs.
+    let wins = 0;
+    let ties = 0;
+    for (const a of matched) for (const b of unmatched) { if (a > b) wins += 1; else if (a === b) ties += 1; }
+    const auc = matched.length && unmatched.length ? (wins + ties / 2) / (matched.length * unmatched.length) : NaN;
+    console.log(
+      `\nV3 discrimination: mean score golden-matched ${mean(matched).toFixed(2)} (n=${matched.length}) vs ` +
+        `non-matched ${mean(unmatched).toFixed(2)} (n=${unmatched.length}) — AUC ${auc.toFixed(2)} ` +
+        `(V2's implicit AUC was ~0.5: flat 82% "real" everywhere)`,
+    );
   }
 
   console.log(`\n=== VF-BoN vs the ladder — strict (file+line) vs semantic (judge τ=${TAU}) ===`);

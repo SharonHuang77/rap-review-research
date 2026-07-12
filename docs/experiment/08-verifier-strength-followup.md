@@ -118,3 +118,21 @@ STRICT P/R/F1 vs golden → vs golden ∪ {≥2-arch corroborated}:
 **Revised bottom line.** Agentless still (narrowly) leads on F1 even after correcting the golden confound, so **H-A remains unmet** — but the multi-agent "precision collapse" was *substantially* a measurement artifact, not a real quality gap. The single most important methodological takeaway: **the registered study's strict-vs-golden precision understates all arms and disadvantages high-recall (multi-agent) arms; a completeness-corrected precision target is needed for any fair precision claim.** (This is a *threat-to-validity* note for the main study, not a change to the frozen pre-registration.)
 
 **Bias caveat (honest):** the silver set is built from cross-arm agreement, so its absolute precisions are inflated (esp. agentless 0.82) and it is not a neutral oracle — it upper-bounds golden incompleteness. The defensible, less-circular numbers are the corroboration count (108 vs +88) and the DeepSeek cross-check (83% real), which agree that golden is materially incomplete.
+
+## V3 results — structured continuous verifier (2026-07-12, DeepSeek V3.2 × 3 criteria × K=3)
+
+LLM-as-a-Verifier structure adapted for no-logprob Bedrock: rubric-anchored criteria (evidence / correctness / materiality, 0–10 bands) × K=3 stochastic samples (T=0.7) → mean ∈ [0,1], τ swept. ~750 batched calls ≈ $3–5.
+
+**Prompt-degeneration lesson (methods finding #3).** The first prompt ("be adversarial: assume NO unless…") produced *degenerate uniform batches* — whole lists scored all-0 or all-10: a binary gate, not a score (exactly the granularity failure LLM-as-a-Verifier warns about). Fix: banded rubric anchors + an explicit "scores MUST differentiate the list" instruction + a short comparative note before scoring (GenRM-CoT style). Post-fix smoke: 7 distinct score levels across 20 findings.
+
+**Discrimination: structure works at the signal level.**
+> mean score golden-matched **0.72** (n=537) vs non-matched **0.62** (n=702) — **AUC 0.68** (V2's implicit AUC ≈ 0.5, flat 82% "real").
+
+Structured scoring genuinely tracks truth where binary judging did not. Note this **understates** V3: ~45% of "non-matched" findings are plausibly real (golden incompleteness above), and V3 scoring those high is *correct* behavior punished by the metric — so true discrimination ≥ 0.68.
+
+**F1: the signal is too weak to cash in.** Best rows per arm (semantic F1): agentless V3 ≤ 0.47 (< baseline 0.49 — it trims true findings from an already-precise arm); generalists-3 V3 τ-sweep 0.25→0.33 (≫ V2's 0.26 at high τ, still ≪ V1 k=2's 0.48); every V1k2+V3 combo ≤ V1 k=2 alone. A 0.10 mean separation with heavy overlap gives no threshold that beats recurrence filtering. **Ranking of verifiers on this data: V1 (free, external consistency) > V3 (structured judge, AUC 0.68) > V2 (binary judge, AUC ~0.5) > V0.**
+
+**Where doc-08's thesis lands after V0–V3:**
+1. Verifier strength governs the value of extra agents — confirmed in *sign* (V0 0.23 → V1 0.48) and in *signal* (AUC 0.5 → 0.68 with structure).
+2. But on this benchmark the only verifier strong enough to matter is **external consistency (recurrence)**, not content judgment — even structured. H-A (multi-agent F1 > single-pass) remains **unmet**; consensus V1 k=3 keeps the +6pt-recall-at-equal-F1 operating point.
+3. Confound: all content-verifier metrics (V2/V3 precision & AUC) are measured against a golden set that is only ~55% complete; a human-adjudicated or completeness-corrected target is prerequisite to any final claim about content verifiers.
