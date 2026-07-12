@@ -94,3 +94,27 @@ Non-circular triangle: generation = Haiku (SUT), semantic-match judge = Llama, *
 **Refined thesis:** verifier strength matters, but strength = **structure** (self-consistency; or continuous + K + C), **not** a strong model making one binary call. **H-A remains UNDEMONSTRATED:** the best multi-agent config (V1) *ties* agentless (~0.48–0.49), doesn't beat it. The one real multi-agent edge stays the **operating point** — consensus V1 k=3 holds +6pt recall (0.57 vs 0.51) at equal F1.
 
 **Next rungs:** V3 = LLM-as-a-Verifier proper (continuous score + criteria decomposition + K), which the V2 null specifically motivates; a stricter/criteria-decomposed V2 prompt; and a fairer precision target (pseudo-golden or sampled human adjudication) to remove the golden-incompleteness confound. (Caveat: V2's leniency is partly prompt-sensitive — a single agreeable binary judgment; the structured V3 method is the principled fix.)
+
+## Golden-completeness diagnostic (2026-07-12, `npm run golden:completeness`, FREE)
+
+To separate "weak verifier" from "incomplete golden", cross-arm corroboration (a finding independently produced by ≥2 of the 4 distinct architectures) + the independent DeepSeek verdict are used as two "is-it-real" signals. Validation batch (21 instances):
+
+- **golden lists 108 issues; 88 more clusters are corroborated by ≥2 independent architectures** (DeepSeek judges **83%** of those real; 94% of the ≥3-arch ones). → the plausibly-real issue set is ~196; **golden captures only ~55%.**
+- **DeepSeek says "real" to ~82% of even SINGLE-arch findings**, barely rising with corroboration (82%→83%→94%). A good verifier's real-rate should climb steeply with corroboration; DeepSeek's near-flat 82% floor is independent confirmation that **V2 is genuinely too lenient** — it does not track the corroboration signal.
+
+STRICT P/R/F1 vs golden → vs golden ∪ {≥2-arch corroborated}:
+
+| arch | P | R | F1 |
+|---|---|---|---|
+| agentless | 0.48→**0.82** | 0.47→0.45 | 0.44→**0.55** |
+| generalists-3 | 0.25→0.45 | 0.61→0.62 | 0.34→**0.49** |
+| hierarchical | 0.26→0.51 | 0.59→0.63 | 0.35→**0.53** |
+| consensus | 0.29→0.51 | 0.55→0.56 | 0.36→**0.50** |
+
+**Both causes are real, now separated:**
+1. **Golden is ~45% incomplete.** Precision-vs-golden systematically understates *every* arm, and penalizes the multi-agent arms most (they surface more real-but-unlisted findings). Against a completeness-corrected target the F1 gap collapses: agentless 0.44→0.55 vs multi-agent 0.34–0.36→**0.49–0.53**.
+2. **V2 (DeepSeek binary) is independently confirmed weak** (flat 82% "real" floor).
+
+**Revised bottom line.** Agentless still (narrowly) leads on F1 even after correcting the golden confound, so **H-A remains unmet** — but the multi-agent "precision collapse" was *substantially* a measurement artifact, not a real quality gap. The single most important methodological takeaway: **the registered study's strict-vs-golden precision understates all arms and disadvantages high-recall (multi-agent) arms; a completeness-corrected precision target is needed for any fair precision claim.** (This is a *threat-to-validity* note for the main study, not a change to the frozen pre-registration.)
+
+**Bias caveat (honest):** the silver set is built from cross-arm agreement, so its absolute precisions are inflated (esp. agentless 0.82) and it is not a neutral oracle — it upper-bounds golden incompleteness. The defensible, less-circular numbers are the corroboration count (108 vs +88) and the DeepSeek cross-check (83% real), which agree that golden is materially incomplete.

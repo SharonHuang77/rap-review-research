@@ -33,7 +33,8 @@
     "judge:eval": "node scripts/benchmark-judge-eval.ts",
     "swe:eval": "node scripts/benchmark-swe-eval.ts",
     "check": "npm run typecheck && npm run test",
-    "bon:eval": "node scripts/verifier-bon-eval.ts"
+    "bon:eval": "node scripts/verifier-bon-eval.ts",
+    "golden:completeness": "node scripts/golden-completeness.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
