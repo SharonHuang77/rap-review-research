@@ -204,6 +204,22 @@ the team. What would reopen the question: a member trio at near-parity, or
 behavioral (not format) adaptation — which changes the semantic prompt and
 therefore leaves the frozen-prompt comparison regime entirely.
 
+### 8.1 Reopened (2026-07-13): a parity member exists
+
+Screening four newly-available Bedrock serverless models with the unadapted
+v1 prompt on the dev set (protocol and table in the Phase B adaptation log)
+found **Kimi K2.5 at parity with Haiku out of the box** (strict F1 0.52 vs
+0.53; ratio 0.98 — gate PASS), with GLM 5 a near-miss (0.81) and both
+code-specialized models (Devstral 2, Qwen3 Coder Next) failing badly — an
+interesting inversion: code-generation specialists transfer worse to review
+than generalist frontier models. Per this section's reopening clause, the
+heterogeneity question REOPENS with a Claude+Moonshot core: Phase C is now
+justified for Kimi K2.5 (GLM 5 provisionally, its gate call deferred to the
+semantic measurement on Phase C data, as the gate is defined). The
+prediction to beat is unchanged: cross-family V1 k=2 must exceed homo-Haiku
+V1 k=2 (semantic F1 0.49), with the measured 79%-precision cross-family
+corroboration signal now backed by enough member overlap to harvest.
+
 ## 9. Papers (all verified against arXiv)
 
 | role | paper |

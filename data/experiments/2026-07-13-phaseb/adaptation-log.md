@@ -76,3 +76,31 @@ gap. Quality gaps under correct formatting are a RESULT (format-only porting
 insufficient), not something to patch with behavioral instructions._
 
 **Not triggered** — no format failures observed in iteration 1. Closed.
+
+---
+
+## Candidate screening — stronger members (2026-07-13, same protocol)
+
+New Bedrock serverless models screened with the UNADAPTED v1 prompt on the
+same 5-PR dev set (5 × 2 runs each; gate proxy: strict F1 ≥ 0.85 × Haiku's
+0.53 ≈ 0.45):
+
+| model | completed | zero-finding | f/run | strict P/R/F1 | parity | gate |
+|---|---|---|---|---|---|---|
+| moonshotai.kimi-k2.5 | 10/10 | 0 | 5.1 | 0.59 / 0.49 / **0.52** | **0.98** | **PASS** |
+| zai.glm-5 | 10/10 | 0 | 3.6 | 0.57 / 0.35 / 0.43 | 0.81 | near-miss |
+| mistral.devstral-2-123b | 10/10 | 0 | 3.2 | 0.40 / 0.17 / 0.22 | 0.42 | FAIL |
+| qwen.qwen3-coder-next | 10/10 | 0 | 3.7 | 0.30 / 0.16 / 0.20 | 0.38 | FAIL |
+
+Observations: (1) **Kimi K2.5 is at parity with the frozen Haiku prompt
+out of the box** — nearly identical profile (P 0.59/R 0.49 vs Haiku
+0.61/0.49) and comparable verbosity (5.1 vs 5.3 findings/run). (2) GLM 5
+shows Haiku-class precision (0.57) but reticent recall (0.35, 3.6 f/run) —
+just below the gate; no format failures, so per the iteration rule no
+format port is warranted; its gate call is deferred to semantic evaluation
+on Phase C data as the gate is defined. (3) **The two code-SPECIALIZED
+models score worst** — Devstral 2's card explicitly advertises PR review
+(0.22), Qwen3 Coder Next likewise (0.20). Code-generation specialization
+does not transfer to review-discrimination; the generalist frontier models
+transfer far better. All 40 runs completed with zero format failures —
+model capability, not formatting, separates the board.
