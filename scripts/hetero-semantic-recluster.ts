@@ -52,6 +52,8 @@ const OUT_DIR = resolve(process.env.OUT_DIR ?? DATA_IN);
 const PAIR_TAU = Number(process.env.PAIR_THRESHOLD ?? 0.7);
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const MAX_JUDGE_CALLS = Number(process.env.MAX_JUDGE_CALLS ?? Infinity);
+// Nova's sandbox RPM quota is small; default gentle. Resume is cache-cheap.
+const PAIR_CONCURRENCY = Math.max(1, Number(process.env.PAIR_CONCURRENCY ?? 2));
 const PAIR_JUDGE = {
   ...DEFAULT_PAIR_JUDGE_CONFIG,
   modelId: process.env.PAIR_JUDGE_MODEL ?? DEFAULT_PAIR_JUDGE_CONFIG.modelId,
@@ -169,11 +171,11 @@ async function judgePendingPairs(): Promise<void> {
           break;
         } catch (error) {
           const transient = error instanceof ProviderRateLimitError || error instanceof ProviderTimeoutError;
-          if (!transient || attempt === 8) {
+          if (!transient || attempt === 12) {
             flush();
             throw error;
           }
-          const waitMs = Math.min(30_000, 2_000 * 2 ** (attempt - 1));
+          const waitMs = Math.min(90_000, 2_000 * 2 ** (attempt - 1));
           await new Promise((r) => setTimeout(r, waitMs));
         }
       }
@@ -184,7 +186,7 @@ async function judgePendingPairs(): Promise<void> {
       }
     }
   };
-  await Promise.all(Array.from({ length: 4 }, worker));
+  await Promise.all(Array.from({ length: PAIR_CONCURRENCY }, worker));
   flush();
   console.log(`  judged ${done} pairs (${unparseable} unparseable responses skipped)`);
 }

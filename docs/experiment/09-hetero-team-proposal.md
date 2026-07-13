@@ -1,7 +1,8 @@
 # 09 — Heterogeneous teams, tested fairly (proposal)
 
-**Status:** proposal + Phase A implemented. **Exploratory** — not part of the
-registered confirmatory analysis (04-preregistration.md is unchanged).
+**Status:** proposal; Phase A implemented and **run** (results in §8).
+**Exploratory** — not part of the registered confirmatory analysis
+(04-preregistration.md is unchanged).
 
 ## 1. Why revisit
 
@@ -123,7 +124,50 @@ decisive test.
 - **Judge-family fallback.** If Nova is unavailable and the judge falls back
   to a member family, self-preference bias re-enters; record and report.
 
-## 7. Papers (all verified against arXiv)
+## 7. Phase A results (2026-07-13; Nova Pro pair judge, 1103 pairs, 0 unparseable)
+
+Full table: `data/experiments/2026-07-12-hetero-team/recluster-report.json`.
+Key rows (semantic golden matching, τ=0.7):
+
+| team | instrument | V1 k=2 f/run | P | R | F1 |
+|---|---|---|---|---|---|
+| homo Haiku | lexical | 4.4 | 0.55 | 0.50 | **0.49** |
+| homo Haiku | semantic | 4.4 | 0.55 | 0.51 | **0.49** |
+| HETERO 3-family | lexical | **0.1** | 0.10 | 0.02 | 0.03 |
+| HETERO 3-family | semantic | **1.6** | **0.59** | 0.29 | 0.36 |
+
+1. **Mechanism 2 confirmed and quantified.** The semantic matcher finds
+   **14× more cross-family corroboration** than the lexical key (V1 k=2:
+   0.1 → 1.6 findings/run; F1 0.03 → 0.36). Within-family clustering, by
+   contrast, barely moves for Haiku (0.49 → 0.49) — temp-0 same-model reruns
+   really are lexically stable, exactly as doc 08 hypothesized. The doc-08
+   hetero null was, to first order, an instrument artifact.
+2. **H-hetero confirmed at the signal level.** Golden-match rate by
+   corroboration depth (semantic instrument): findings corroborated by
+   **≥2 families: 79%** (n=28) vs same-family findings recurring in all
+   3 runs: **56%** (n=85); hetero singletons 34% vs homo singletons 22%.
+   Cross-family agreement is a materially stronger precision signal than
+   same-family recurrence — the independence argument holds. (n=28 is small;
+   Phase C sizes this properly.)
+3. **But Self-MoA wins the F1 fight, as gated.** Both non-Haiku members
+   failed the pre-stated 0.85 parity gate (DeepSeek 0.65, Llama 0.28 under
+   the unadapted prompt), and exactly as arXiv:2502.00674 predicts, dilution
+   beats diversity: hetero V1 k=2 recall collapses to 0.29 (too few
+   cross-family overlaps survive) and F1 stays below the homogeneous
+   baseline. Both pre-registered opposing predictions resolved on schedule:
+   H-hetero's mechanism is real; Self-MoA's win condition is binding.
+4. **The pair judge is threshold-insensitive** (τ_pair 0.5/0.7/0.9 → F1
+   0.38/0.36/0.36), replicating the A2 judge's binary-like behavior — one
+   fewer hyperparameter to defend.
+
+**Decision.** Phase B is now decisive and quantified: format-port the prompt
+per family; if adapted DeepSeek clears the 0.85 gate, the 79%-precision
+cross-family signal has enough member overlap to harvest, and Phase C tests
+whether hetero V1 then beats homo V1. If adaptation cannot clear the gate,
+the null is explained by member quality and the heterogeneity question closes
+(for this model trio) with both mechanisms measured.
+
+## 8. Papers (all verified against arXiv)
 
 | role | paper |
 |---|---|
