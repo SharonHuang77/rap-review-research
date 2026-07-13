@@ -199,7 +199,7 @@ Scoring the pre-stated predictions honestly: **(i) confirmed decisively;
    the measured AUC of any good content verifier is capped below its true
    value; convergence is exactly what a target-side ceiling predicts.
    Re-scoring both AUCs against the completeness-corrected target is the
-   free, fully-cached follow-up.
+   free, fully-cached follow-up — run below, and the prediction **failed**.
 3. **No F1 rescue — but a new best-precision operating point.** Recall pays
    for precision everywhere, so V1 keeps the F1 crown (0.48–0.49). However
    agentless V2.5 c≥8 reaches **semantic P 0.65 at 2.4 findings/run**
@@ -214,5 +214,32 @@ consensus V1 k=3 (R 0.57 at F1 0.48); balance → V1; precision → V2.5 c≥8
 (P 0.65–0.66).** The doc-08 thesis survives with a refinement: verifier
 *presence* decides whether extra compute pays; verifier *type* chooses the
 point on the precision-recall frontier; and no content verifier beats free
-recurrence on F1 — plausibly because the incomplete golden target punishes
-exactly the approvals a good content verifier gets right.
+recurrence on F1.
+
+### Target-side ceiling test (2026-07-13, `npm run bon:auc` — zero LLM calls)
+
+The ceiling hypothesis made a testable prediction: if golden incompleteness
+caps measured AUC, findings matched by the corrected target ONLY
+(real-but-unlisted per ≥2-arch corroboration) should score like
+golden-matched ones, and AUC vs the corrected target should rise.
+**Both parts failed:**
+
+| verifier | mean: golden | silver-only | neither | AUC gold | AUC corrected |
+|---|---|---|---|---|---|
+| V3   | 0.72 | **0.64** | 0.59 | 0.676 | 0.658 (−0.018) |
+| V2.5 | 0.24 | **−0.15** | −0.33 | 0.657 | 0.621 (−0.036) |
+
+Silver-only findings score *between* golden and neither — a monotone
+gradient, not parity — and the corrected-target AUC drops for both
+verifiers. So the verifiers are not being punished for confident correct
+approvals of unlisted-but-real issues; they are genuinely uncertain about
+that class. **The ~⅔ ceiling is verifier-side, not target-side**: the
+convergence of two very different calibration strategies now reads as the
+real capability limit of read-only content verification on this task
+(caveat: silver is itself a noisy upper bound, so a fraction of "silver-only"
+items are spurious, which deflates that bucket's mean somewhat — but not
+enough to rescue parity). This *strengthens* the doc-08 thesis: recurrence
+is not merely tied with content judgment pending better measurement — it
+beats it, and the deficit is in the judges. The scored-prediction ledger for
+this study now reads: V2.5(i) ✓, V2.5(ii) ✗, V2.5(iii) ✗, ceiling ✗ —
+four pre-stated predictions, one confirmed, three refuted, all informative.
