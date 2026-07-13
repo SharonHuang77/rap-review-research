@@ -155,3 +155,28 @@ Hypothesis: cross-MODEL corroboration (Haiku + DeepSeek V3.2 + Llama 3.3, one ag
 1. Verifier strength governs the value of extra agents — confirmed in *sign* (V0 0.23 → V1 0.48) and in *signal* (AUC 0.5 → 0.68 with structure).
 2. But on this benchmark the only verifier strong enough to matter is **external consistency (recurrence)**, not content judgment — even structured. H-A (multi-agent F1 > single-pass) remains **unmet**; consensus V1 k=3 keeps the +6pt-recall-at-equal-F1 operating point.
 3. Confound: all content-verifier metrics (V2/V3 precision & AUC) are measured against a golden set that is only ~55% complete; a human-adjudicated or completeness-corrected target is prerequisite to any final claim about content verifiers.
+
+## Registered next probe: V2.5 exclusion-first verifier (implemented, not yet run)
+
+V2 failed as a *calibration* problem, not an intelligence problem: a bare "is
+this real?" question gives the judge no decision boundaries, and it defaults
+to approving (~83% "real", AUC ~0.5). Production review prompts solve this
+differently — Claude Code's security-review prompt spends most of its length
+on **hard exclusions** (what is never a finding) and **precedents**
+(adjudicated edge cases), states the asymmetric error cost outright, and
+gates on a confidence floor. V2.5 ports that structure to our verifier
+(`V25_MODEL=... V25_CACHE=... npm run bon:eval`): 7 exclusions + 6 precedents
+distilled from this benchmark's observed false-positive patterns, a
+scenario-first test (a finding the verifier cannot write a concrete failure
+scenario for must be rejected — the per-item cure for the batch-uniformity
+degeneracy V3 exhibited), and cached 0-10 confidence so threshold sweeps
+replay free.
+
+Pre-stated predictions: (i) rejection rate ≫ V2's 17%; (ii) AUC > V3's 0.68
+— i.e. **domain precedents > rubric structure > judge intelligence**; (iii)
+open question: whether that converts into F1 above V1's 0.48, which no
+content verifier has managed yet. A related observation for the methods
+notes: adversarial framing worked in verification prompts that *execute*
+(evidence-grounded agents) and degenerated in ours that only *read* — an
+adversarial stance needs an evidence channel, else it collapses into a
+posture (uniform 0s/10s).
