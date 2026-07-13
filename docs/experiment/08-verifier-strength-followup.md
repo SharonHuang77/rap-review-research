@@ -156,7 +156,7 @@ Hypothesis: cross-MODEL corroboration (Haiku + DeepSeek V3.2 + Llama 3.3, one ag
 2. But on this benchmark the only verifier strong enough to matter is **external consistency (recurrence)**, not content judgment — even structured. H-A (multi-agent F1 > single-pass) remains **unmet**; consensus V1 k=3 keeps the +6pt-recall-at-equal-F1 operating point.
 3. Confound: all content-verifier metrics (V2/V3 precision & AUC) are measured against a golden set that is only ~55% complete; a human-adjudicated or completeness-corrected target is prerequisite to any final claim about content verifiers.
 
-## Registered next probe: V2.5 exclusion-first verifier (implemented, not yet run)
+## Registered probe: V2.5 exclusion-first verifier
 
 V2 failed as a *calibration* problem, not an intelligence problem: a bare "is
 this real?" question gives the judge no decision boundaries, and it defaults
@@ -180,3 +180,39 @@ notes: adversarial framing worked in verification prompts that *execute*
 (evidence-grounded agents) and degenerated in ours that only *read* — an
 adversarial stance needs an evidence channel, else it collapses into a
 posture (uniform 0s/10s).
+
+### V2.5 results (2026-07-13, DeepSeek V3.2, same 21×4×3 batch)
+
+Scoring the pre-stated predictions honestly: **(i) confirmed decisively;
+(ii) narrowly refuted; (iii) refuted.**
+
+1. **The rubber stamp is cured: rejection 17% → 64%** (at c≥8). Exclusions +
+   precedents turn the *same DeepSeek model* from approve-almost-everything
+   into a working skeptic. Calibration, not intelligence, was the deficit.
+2. **AUC 0.66 vs V3's 0.68 — a tie, not a win.** The strong claim
+   (precedents > rubric) is not supported; the weak claim (any calibration ≫
+   bare question: 0.66/0.68 ≫ 0.5) is. The striking part: two entirely
+   different calibration strategies — domain case law (V2.5) vs rubric ×
+   stochastic sampling (V3) — **converge on the same ~⅔ discrimination
+   ceiling**. With golden only ~55% complete, a verifier that correctly
+   approves a real-but-unlisted finding is *scored* as a false approval, so
+   the measured AUC of any good content verifier is capped below its true
+   value; convergence is exactly what a target-side ceiling predicts.
+   Re-scoring both AUCs against the completeness-corrected target is the
+   free, fully-cached follow-up.
+3. **No F1 rescue — but a new best-precision operating point.** Recall pays
+   for precision everywhere, so V1 keeps the F1 crown (0.48–0.49). However
+   agentless V2.5 c≥8 reaches **semantic P 0.65 at 2.4 findings/run**
+   (V1k2+V2.5c8: **0.66** at 1.9/run) — the highest precision of any
+   configuration in the study (single-pass baseline: 0.55). For a
+   quiet-reviewer deployment — flag only what is near-certain; misses cheap,
+   noise expensive — V2.5 c≥8 is the best tool this study has produced.
+
+**Updated ranking (best-arm semantic F1): V1 0.48 > V3 0.43 ≈ V2.5 0.42 ≈
+V2 0.42 — but the more useful frame is by operating point: recall →
+consensus V1 k=3 (R 0.57 at F1 0.48); balance → V1; precision → V2.5 c≥8
+(P 0.65–0.66).** The doc-08 thesis survives with a refinement: verifier
+*presence* decides whether extra compute pays; verifier *type* chooses the
+point on the precision-recall frontier; and no content verifier beats free
+recurrence on F1 — plausibly because the incomplete golden target punishes
+exactly the approvals a good content verifier gets right.
