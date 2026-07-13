@@ -1,8 +1,9 @@
 # 09 — Heterogeneous teams, tested fairly (proposal)
 
-**Status:** proposal; Phase A implemented and **run** (results in §8).
-**Exploratory** — not part of the registered confirmatory analysis
-(04-preregistration.md is unchanged).
+**Status:** CLOSED (2026-07-13). Phase A run (§7); Phase B(i) run and the
+format hypothesis refuted (§8); Phase C not justified — the heterogeneity
+question closes for this model trio. **Exploratory** — not part of the
+registered confirmatory analysis (04-preregistration.md is unchanged).
 
 ## 1. Why revisit
 
@@ -167,7 +168,43 @@ whether hetero V1 then beats homo V1. If adaptation cannot clear the gate,
 the null is explained by member quality and the heterogeneity question closes
 (for this model trio) with both mechanisms measured.
 
-## 8. Papers (all verified against arXiv)
+## 8. Phase B(i) results (2026-07-13) — format hypothesis refuted; question closed
+
+Full protocol and numbers: `data/experiments/2026-07-13-phaseb/adaptation-log.md`.
+Format-only ports (`v1-deepseek`, `v1-llama`; semantic sentences identical
+to v1) on a 5-PR dev set disjoint from the evaluation batch:
+
+| model | v1 (strict F1) | ported (strict F1) | zero-finding runs |
+|---|---|---|---|
+| DeepSeek V3.2 | 0.27 | 0.28 | 2→3 /10 |
+| Llama 3.3 70B | 0.00 | 0.00 | 7→6 /10 |
+| Haiku (reference) | 0.53 | — | 0/10 |
+
+Zero format failures anywhere: all 20 non-Haiku runs completed, and a raw
+probe of a zero-finding Llama run shows syntactically perfect JSON with an
+explicit `"findings": []` and a "looks correct" summary — seeded defects
+waved through, not output lost to parsing. By the pre-registered
+iteration-2 rule (format failures only), Phase B(i) closes after one
+iteration.
+
+**Verdict for the doc-09 arc.** Mechanism 1 was misdiagnosed: the
+cross-model transfer failure is *substantive* (defect-detection capability
+under this semantic prompt), not format — FormatSpread's axis was not the
+binding one here. With the Self-MoA parity gate unclearable by legitimate
+(format-only) adaptation, Phase C is not justified, and **the heterogeneity
+question closes for this model trio** with every link measured: the matching
+instrument was broken and is fixed (14× corroboration, §7.1); the
+cross-family precision signal is real (79% vs 56%, §7.2); and the member
+quality gap is real and not a prompt artifact (§this). The transferable
+conclusion: heterogeneous review teams need members near quality parity
+*before* diversity pays — with such members (e.g., frontier-class trios),
+the measured 79%-precision cross-family corroboration signal is the thing
+to harvest; with weak members no amount of matching or prompting rescues
+the team. What would reopen the question: a member trio at near-parity, or
+behavioral (not format) adaptation — which changes the semantic prompt and
+therefore leaves the frozen-prompt comparison regime entirely.
+
+## 9. Papers (all verified against arXiv)
 
 | role | paper |
 |---|---|

@@ -38,17 +38,33 @@ Format changes (system.md only):
    prompt (tail-position reminder).
 Semantic sentences: unchanged.
 
-Results (to fill after `phaseb:dev` runs):
+Results (2026-07-13, 5 dev PRs × 2 runs each):
 
 | label | completed | zero-finding | findings/run | strict P/R/F1 |
 |---|---|---|---|---|
-| deepseek.v3.2@v1 (baseline) | | | | |
-| deepseek.v3.2@v1-deepseek | | | | |
-| llama3.3@v1 (baseline) | | | | |
-| llama3.3@v1-llama | | | | |
-| haiku@v1 (reference) | | | | |
+| deepseek.v3.2@v1 (baseline) | 10/10 | 2/10 | 3.2 | 0.39 / 0.23 / 0.27 |
+| deepseek.v3.2@v1-deepseek | 10/10 | 3/10 | 2.8 | 0.39 / 0.24 / 0.28 |
+| llama3.3@v1 (baseline) | 10/10 | 7/10 | 0.5 | 0.00 / 0.00 / 0.00 |
+| llama3.3@v1-llama | 10/10 | 6/10 | 0.8 | 0.00 / 0.00 / 0.00 |
+| haiku@v1 (reference) | 10/10 | 0/10 | 5.3 | 0.61 / 0.49 / 0.53 |
 
-Decision after iteration 1: _pending_
+**Raw-response audit (removes the silent-drop concern):** a direct probe of
+a zero-finding Llama run (aspnetcore-pr-8, v1-llama) returned syntactically
+perfect JSON — `"findings": []`, a "looks correct" summary, clean
+`end_turn`. The zero-finding runs are genuine substantive verdicts on PRs
+whose golden sets are non-empty (seeded defects waved through), not
+malformed output dropped by lenient validation.
+
+**Decision after iteration 1: Phase B(i) CLOSES — no iteration 2.**
+Zero format failures were observed (20/20 non-Haiku runs completed, valid
+JSON confirmed by raw probe), so by the pre-registered rule below there is
+nothing an iteration 2 may legitimately change. Format-only porting moved
+nothing (DeepSeek F1 0.27→0.28, findings/run down; Llama 0.00→0.00):
+**the cross-model transfer failure is substantive (defect-detection
+capability under this semantic prompt), not format.** The FormatSpread-based
+mechanism-1 hypothesis is refuted for this transfer; the Self-MoA parity
+gate cannot be cleared by format adaptation, so Phase C generation is not
+justified and the doc-09 heterogeneity question closes for this model trio.
 
 ---
 
@@ -58,3 +74,5 @@ _Rule: a change here must answer a specific observed format failure from
 iteration 1 (e.g. fences still appearing, truncated JSON), not a quality
 gap. Quality gaps under correct formatting are a RESULT (format-only porting
 insufficient), not something to patch with behavioral instructions._
+
+**Not triggered** — no format failures observed in iteration 1. Closed.
