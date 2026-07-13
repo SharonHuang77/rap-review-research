@@ -2,7 +2,7 @@
   "name": "rap-review-research",
   "version": "0.1.0",
   "private": true,
-  "description": "AI Code Review Experiment Platform — Experiment Engine (RFC-01)",
+  "description": "AI Code Review Experiment Platform â€” Experiment Engine (RFC-01)",
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
@@ -35,7 +35,8 @@
     "check": "npm run typecheck && npm run test",
     "bon:eval": "node scripts/verifier-bon-eval.ts",
     "golden:completeness": "node scripts/golden-completeness.ts",
-    "hetero:eval": "node scripts/hetero-team-eval.ts"
+    "hetero:eval": "node scripts/hetero-team-eval.ts",
+    "hetero:recluster": "node scripts/hetero-semantic-recluster.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
