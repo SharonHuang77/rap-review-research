@@ -220,6 +220,56 @@ prediction to beat is unchanged: cross-family V1 k=2 must exceed homo-Haiku
 V1 k=2 (semantic F1 0.49), with the measured 79%-precision cross-family
 corroboration signal now backed by enough member overlap to harvest.
 
+### 8.2 Phase C results (2026-07-13) — the parity-trio verdict
+
+Generation: 21 eval PRs × 3 runs × {Kimi K2.5 (63/63), GLM 5 (61/63; 2
+envelope failures)}; matching judge extended (Llama), 1833 new pair
+judgments (Nova, 0 unparseable). Artifacts:
+`data/experiments/2026-07-13-phasec/`. **Gate, as registered (semantic,
+eval batch): all three families PASS** — Haiku 0.49, Kimi K2.5 0.49, GLM 5
+0.50 (ratios 0.98/0.98/1.00). This is the study's first fully-qualified
+parity trio.
+
+Key rows (semantic instrument, semantic golden matching):
+
+| team / row | f/run | P | R | F1 |
+|---|---|---|---|---|
+| homo Haiku V1 k=2 (the incumbent) | 4.4 | 0.55 | 0.51 | **0.49** |
+| homo GLM-5 V0 (3-run union) | 4.7 | 0.61 | 0.56 | **0.53** |
+| **HETERO V0 (1 run × 3 families)** | 6.7 | 0.49 | **0.64** | **0.52** |
+| **HETERO V1 k=2 (≥2 families)** | 2.8 | **0.69** | 0.41 | 0.48 |
+| HETERO V1 k=3 (all 3 families) | 1.7 | **0.72** | 0.32 | 0.40 |
+
+Scoring the registered prediction honestly: **hetero V1 k=2 (0.48) does NOT
+exceed homo-Haiku V1 k=2 (0.49) — a tie, not a win.** But the frontier
+moved in three ways that matter more than the headline:
+
+1. **The union is no longer noise.** With parity members, pooled diversity
+   beats the old 0.49 ceiling *unverified* (hetero V0 0.52; weak-member V0
+   rows in doc 08 sat at 0.23–0.44). Yet GLM-5's own 3-run union scores
+   0.53 — **Self-MoA holds even at parity**: mixing (0.52) statistically
+   ties self-ensembling the best member (0.53) on F1. The diversity dividend
+   on F1 is ≈0, exactly as arXiv:2502.00674 predicts for near-parity pools.
+2. **The diversity dividend is real — it lives on the precision axis.**
+   Cross-family agreement is a *verification* signal, not a generation
+   boost: ≥2-family V1 k=2 reaches **P 0.69 at F1 0.48** — ties the
+   baseline's F1 while adding **+14pt precision**, and strictly dominates
+   V2.5 c≥8, the previous best precision point (P 0.65 at F1 0.37). All-3
+   agreement reaches P 0.72; the depth diagnostic gives **83% golden-match
+   for 3-family clusters (n=35)** vs 57% for same-model 3-run recurrence —
+   the strongest verification signal measured anywhere in this study.
+3. **Threshold-insensitive again** (τ_pair 0.5/0.7/0.9 → 0.48/0.48/0.48).
+
+**Final verdict on the heterogeneity question: cross-family corroboration
+is a precision instrument, not an F1 instrument.** Heterogeneity does not
+make teams find more (Self-MoA is right at every scale we tested); it makes
+what independent families agree on the most trustworthy class of finding we
+can identify (83%). Folded into the study's thesis: verifier structure
+governs the value of extra compute, and the strongest verifier structure
+found is cross-family recurrence — diversity's payoff is verification, not
+generation. Exploratory throughout; N=21; differences of 0.01–0.04 are
+within noise at this sample size.
+
 ## 9. Papers (all verified against arXiv)
 
 | role | paper |
