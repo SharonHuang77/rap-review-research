@@ -44,16 +44,24 @@ const OUT_DIR = resolve(
 const RUNS_PER_INSTANCE = process.env.RUNS_PER_INSTANCE ?? "3";
 const CHUNK_PAUSE_MS = Math.max(0, Number(process.env.PHASE2_CHUNK_PAUSE_MS ?? 30_000));
 
+// Small chunks (5 PRs) so an interrupted run — shutdown or sleep mid-chunk —
+// loses at most one chunk's generation; completed chunks are skipped via on-disk
+// .done markers, and each chunk's runs/cache persist to its own file. Smaller
+// chunks add only trivial per-spawn overhead: the legacy 1-instance swe.json that
+// judge:eval folds into the Qodo path lands ONLY on the offset-0 chunk (higher
+// offsets slice past it), so it is not re-run per chunk. campaign-finished counts
+// are parsed rather than hard-coded, so the fold-in needs no special accounting.
+const CHUNK_SIZE = 5;
+const offsets = (total: number): number[] =>
+  Array.from({ length: Math.ceil(total / CHUNK_SIZE) }, (_, i) => i * CHUNK_SIZE);
 const CHUNKS: readonly Chunk[] = [
-  // Qodo 100 PRs → five 20-PR chunks. (judge:eval also folds in the small legacy
-  // swe.json sample per the frozen tool; that is accounted for by parsing the
-  // campaign-finished line rather than a hard-coded expected count.)
-  ...[0, 20, 40, 60, 80].map(
-    (offset): Chunk => ({ id: `qodo-off${offset}`, script: "judge:eval", offset, limit: 20 }),
+  // Qodo 100 PRs → twenty 5-PR chunks.
+  ...offsets(100).map(
+    (offset): Chunk => ({ id: `qodo-off${offset}`, script: "judge:eval", offset, limit: CHUNK_SIZE }),
   ),
-  // SWE-PRBench 50 PRs (semantic coverage) → five 10-PR chunks.
-  ...[0, 10, 20, 30, 40].map(
-    (offset): Chunk => ({ id: `swe-off${offset}`, script: "swe:eval", offset, limit: 10 }),
+  // SWE-PRBench 50 PRs (semantic coverage) → ten 5-PR chunks.
+  ...offsets(50).map(
+    (offset): Chunk => ({ id: `swe-off${offset}`, script: "swe:eval", offset, limit: CHUNK_SIZE }),
   ),
 ];
 
