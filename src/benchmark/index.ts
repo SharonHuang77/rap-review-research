@@ -62,6 +62,10 @@ export { GroundTruthEvaluator } from "./ground-truth-evaluator.ts";
 export type { BenchmarkEvaluatorDependencies } from "./benchmark-evaluator.ts";
 export { BenchmarkEvaluator } from "./benchmark-evaluator.ts";
 
+// Resume (Phase 2 instance-level budget saver).
+export type { InstanceResumePlan } from "./resume-plan.ts";
+export { planInstanceResume } from "./resume-plan.ts";
+
 // Import + run.
 export type {
   ImportedBenchmarkInstance,

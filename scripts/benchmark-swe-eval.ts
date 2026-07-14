@@ -30,7 +30,9 @@ import { LLM_CONFIG } from "../src/config/llm.ts";
 import { ProviderRateLimitError, ProviderTimeoutError } from "../src/llm/errors.ts";
 
 import { CampaignRunner, InMemoryManifestStore, ProgressReporter, RetryPolicy } from "../src/campaign/index.ts";
-import type { BenchmarkDataset, BenchmarkInstance } from "../src/benchmark/index.ts";
+import type { BenchmarkDataset, BenchmarkInstance, BenchmarkRun } from "../src/benchmark/index.ts";
+import { planInstanceResume } from "../src/benchmark/index.ts";
+import type { ReviewArchitecture } from "../src/models/experiment.ts";
 import type { GoldenComment } from "../src/benchmark/models/golden-comment.ts";
 import { SweGoldenAdapter } from "../src/benchmark/adapters/swe-golden-adapter.ts";
 import { CoverageScoreCache } from "../src/benchmark/matching/coverage-score-cache.ts";
@@ -53,6 +55,17 @@ const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
 // sequential, byte-identical to before; verified content-equivalent in
 // tests/unit/campaign-concurrency-consistency.test.ts. Judge pass stays sequential.
 const CONCURRENCY = Math.max(1, Number(process.env.CAMPAIGN_CONCURRENCY ?? 1));
+const RUNS_PER_INSTANCE = Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 1));
+// Instance-level resume: when set (the driver points it at the chunk's own runs
+// file), already-complete instances are carried verbatim and only incomplete
+// ones are regenerated — the daily-cap budget saver.
+const RESUME_IN = process.env.RUNS_RESUME_IN;
+const CAMPAIGN_ARCHITECTURES: ReviewArchitecture[] = [
+  "agentless",
+  "generalists-3",
+  "hierarchical",
+  "consensus",
+];
 
 // `swe-golden.json` is the Martian golden-comment dataset (location-less),
 // distinct from the legacy file+line `swe.json` sample that campaign:live /
@@ -73,12 +86,32 @@ const commentsByInstance = new Map<string, GoldenComment[]>(
   instances.map((i) => [i.instanceId, i.goldenComments]),
 );
 
+// Instance-level resume (RUNS_RESUME_IN): carry already-complete instances and
+// regenerate only incomplete ones. Byte-neutral to the frozen generation config
+// — see src/benchmark/resume-plan.ts. commentsByInstance above stays keyed on
+// the FULL instance set so the judge phase still scores carried runs.
+const expectedPerInstance = CAMPAIGN_ARCHITECTURES.length * RUNS_PER_INSTANCE;
+const intendedInstanceIds = instances.map((i) => i.instanceId);
+let carriedRuns: BenchmarkRun[] = [];
+let instancesToGenerate = instances;
+if (RESUME_IN && existsSync(RESUME_IN)) {
+  const priorRuns = JSON.parse(readFileSync(RESUME_IN, "utf8")) as BenchmarkRun[];
+  const plan = planInstanceResume(priorRuns, intendedInstanceIds, expectedPerInstance);
+  carriedRuns = plan.carriedRuns;
+  const toRun = new Set(plan.instanceIdsToRun);
+  instancesToGenerate = instances.filter((i) => toRun.has(i.instanceId));
+  console.log(
+    `RESUME — ${plan.completeInstanceIds.length}/${intendedInstanceIds.length} instance(s) complete ` +
+      `(${carriedRuns.length} runs carried); regenerating ${plan.instanceIdsToRun.length}`,
+  );
+}
+
 // BenchmarkDataset for generation: SWE has no located ground truth (empty).
 const genDataset: BenchmarkDataset = {
   datasetId: "swe-prbench",
   name: sweDataset.name,
   source: "swe-prbench",
-  instances: instances.map(
+  instances: instancesToGenerate.map(
     (i): BenchmarkInstance => ({
       instanceId: i.instanceId,
       title: i.title,
@@ -110,24 +143,43 @@ const runner = new CampaignRunner({
   retryPolicy: new RetryPolicy(6),
 });
 
-console.log(`SWE coverage — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}, ${instances.length} PR(s) · concurrency=${CONCURRENCY}\n`);
-const report = await runner.run([genDataset], {
-  campaignId: "swe-eval",
-  architectures: ["agentless", "generalists-3", "hierarchical", "consensus"],
-  maxConcurrency: CONCURRENCY,
-  // Registered protocol (pre-reg §3.3): 3 runs/instance for the confirmatory
-  // campaign. Default 1 for cheap pilots; set RUNS_PER_INSTANCE=3.
-  runsPerInstance: Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 1)),
-  modelVersion: LLM_CONFIG.defaultModel,
-  promptVersion: "v1",
-  workflowVersion: "workflow-v1",
-  evaluationVersion: "eval-v1",
-  platformVersion: "v1.0.0",
-  awsRegion: LLM_CONFIG.region,
-  generatedAt: new Date().toISOString(),
-});
-const runs = report.outcomes.map((o) => o.benchmarkRun);
+let newRuns: BenchmarkRun[] = [];
+if (genDataset.instances.length > 0) {
+  console.log(`SWE coverage — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}, ${genDataset.instances.length} PR(s) · concurrency=${CONCURRENCY}\n`);
+  const report = await runner.run([genDataset], {
+    campaignId: "swe-eval",
+    architectures: CAMPAIGN_ARCHITECTURES,
+    maxConcurrency: CONCURRENCY,
+    // Registered protocol (pre-reg §3.3): 3 runs/instance for the confirmatory
+    // campaign. Default 1 for cheap pilots; set RUNS_PER_INSTANCE=3.
+    runsPerInstance: RUNS_PER_INSTANCE,
+    modelVersion: LLM_CONFIG.defaultModel,
+    promptVersion: "v1",
+    workflowVersion: "workflow-v1",
+    evaluationVersion: "eval-v1",
+    platformVersion: "v1.0.0",
+    awsRegion: LLM_CONFIG.region,
+    generatedAt: new Date().toISOString(),
+  });
+  newRuns = report.outcomes.map((o) => o.benchmarkRun);
+} else {
+  console.log(`RESUME — all ${intendedInstanceIds.length} instance(s) already complete; skipping generation`);
+}
+const runs = [...carriedRuns, ...newRuns];
 if (process.env.RUNS_OUT) writeFileSync(process.env.RUNS_OUT, JSON.stringify(runs, null, 2));
+
+// Authoritative completion signal for phase2-driver: done iff every intended
+// instance now has its full run set (carried + freshly run).
+const finalCount = new Map<string, number>();
+for (const r of runs) finalCount.set(r.instanceId, (finalCount.get(r.instanceId) ?? 0) + 1);
+const completeCount = intendedInstanceIds.filter(
+  (id) => (finalCount.get(id) ?? 0) >= expectedPerInstance,
+).length;
+const complete = completeCount === intendedInstanceIds.length;
+console.log(
+  `phase2-generation complete=${complete} generated=${newRuns.length} carried=${carriedRuns.length} ` +
+    `total=${runs.length} expected=${intendedInstanceIds.length * expectedPerInstance}`,
+);
 
 // Judge (with rate-limit backoff, mirroring judge:eval) → coverage cache.
 const cache = new CoverageScoreCache();

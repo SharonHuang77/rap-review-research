@@ -3,7 +3,12 @@
  * skipping chunks that already completed cleanly and riding through chunk
  * failures so a long unattended run survives transient trouble. Resume by
  * simply re-running: a chunk with a `.done` marker (written only when its
- * `campaign-finished` line reports failed=0) is skipped.
+ * `phase2-generation` line reports complete=true — every intended instance has
+ * a full run set) is skipped. Resume is also INSTANCE-LEVEL *within* a chunk:
+ * each attempt carries already-complete instances (via RUNS_RESUME_IN, set here
+ * to the chunk's own runs file) and regenerates only incomplete ones, so a
+ * daily-token-cap failure mid-chunk does not re-spend budget re-running the
+ * instances that already succeeded.
  *
  * Run with: `node scripts/phase2-driver.ts`
  *
@@ -31,8 +36,13 @@ interface Chunk {
 }
 
 interface ChunkResult {
-  readonly completed: number;
-  readonly failed: number;
+  /** Every intended instance of the chunk now has its full run set. */
+  readonly complete: boolean;
+  /** Runs generated this attempt (freshly executed). */
+  readonly generated: number;
+  /** Runs carried from already-complete instances (skipped — the budget win). */
+  readonly carried: number;
+  /** Total runs in the merged chunk (generated + carried). */
   readonly total: number;
 }
 
@@ -65,7 +75,13 @@ const CHUNKS: readonly Chunk[] = [
   ),
 ];
 
-const FINISH_RE = /campaign-finished completed=(\d+) failed=(\d+) total=(\d+)/;
+// The eval scripts print an authoritative, resume-aware completion line
+// (src/benchmark/resume-plan.ts): a chunk is DONE iff every intended instance
+// has its full run set — whether freshly generated or carried from a prior
+// attempt. This supersedes the runner's per-batch `campaign-finished` line,
+// which (under resume) reflects only the instances re-run this attempt.
+const STATUS_RE =
+  /phase2-generation complete=(true|false) generated=(\d+) carried=(\d+) total=(\d+) expected=(\d+)/;
 
 function markerPath(chunk: Chunk): string {
   return join(OUT_DIR, `${chunk.id}.done`);
@@ -82,17 +98,21 @@ function chunkEnv(chunk: Chunk): NodeJS.ProcessEnv {
     BENCHMARK_LIMIT: String(chunk.limit),
     RUNS_PER_INSTANCE,
     RUNS_OUT: join(OUT_DIR, `${chunk.id}-runs.json`),
+    // Instance-level resume: the eval script reads this chunk's own prior runs,
+    // carries already-complete instances, and regenerates only incomplete ones
+    // (same path as RUNS_OUT — written at end of each attempt).
+    RUNS_RESUME_IN: join(OUT_DIR, `${chunk.id}-runs.json`),
     CACHE_OUT: join(OUT_DIR, `${chunk.id}-cache.json`),
   };
 }
 
 function runChunk(chunk: Chunk): Promise<ChunkResult | null> {
   const logPath = join(OUT_DIR, `${chunk.id}.log`);
-  // SELFTEST spawns node with a canned finish line so the parse/marker path can
+  // SELFTEST spawns node with a canned status line so the parse/marker path can
   // be exercised without a live (paid) Bedrock run.
   const command = SELFTEST ? process.execPath : "npm";
   const args = SELFTEST
-    ? ["-e", "console.log('#0001 campaign-finished completed=252 failed=0 total=252')"]
+    ? ["-e", "console.log('phase2-generation complete=true generated=252 carried=0 total=252 expected=252')"]
     : ["run", chunk.script];
 
   return new Promise((resolvePromise) => {
@@ -113,15 +133,16 @@ function runChunk(chunk: Chunk): Promise<ChunkResult | null> {
     child.stdout?.on("data", onData);
     child.stderr?.on("data", onData);
     child.on("close", () => {
-      const match = FINISH_RE.exec(captured);
+      const match = STATUS_RE.exec(captured);
       if (!match) {
         resolvePromise(null);
         return;
       }
       resolvePromise({
-        completed: Number(match[1] ?? "0"),
-        failed: Number(match[2] ?? "0"),
-        total: Number(match[3] ?? "0"),
+        complete: match[1] === "true",
+        generated: Number(match[2] ?? "0"),
+        carried: Number(match[3] ?? "0"),
+        total: Number(match[4] ?? "0"),
       });
     });
   });
@@ -153,21 +174,21 @@ for (const chunk of CHUNKS) {
 
   console.log(`\n=== ${chunk.id}: npm run ${chunk.script} (offset=${chunk.offset} limit=${chunk.limit}) ===`);
   const result = await runChunk(chunk);
-  if (result && result.failed === 0 && result.total > 0) {
+  if (result && result.complete) {
     writeFileSync(
       markerPath(chunk),
-      `completed=${result.completed} total=${result.total} at ${new Date().toISOString()}\n`,
+      `complete total=${result.total} (generated=${result.generated} carried=${result.carried}) at ${new Date().toISOString()}\n`,
     );
-    console.log(`DONE  ${chunk.id}: ${result.completed}/${result.total} (marker written)`);
-    summary.push(`${chunk.id}: DONE ${result.completed}/${result.total}`);
+    console.log(`DONE  ${chunk.id}: ${result.total} runs (generated=${result.generated} carried=${result.carried}, marker written)`);
+    summary.push(`${chunk.id}: DONE ${result.total} (gen=${result.generated} carried=${result.carried})`);
   } else if (result) {
     console.log(
-      `INCOMPLETE ${chunk.id}: ${result.completed}/${result.total}, failed=${result.failed} — will retry on next run`,
+      `INCOMPLETE ${chunk.id}: ${result.total} runs so far (generated=${result.generated} this attempt) — will retry on next run`,
     );
-    summary.push(`${chunk.id}: incomplete ${result.completed}/${result.total} failed=${result.failed}`);
+    summary.push(`${chunk.id}: incomplete ${result.total} (gen=${result.generated})`);
   } else {
-    console.log(`INCOMPLETE ${chunk.id}: no campaign-finished line — will retry on next run`);
-    summary.push(`${chunk.id}: incomplete (no finish line)`);
+    console.log(`INCOMPLETE ${chunk.id}: no phase2-generation line — will retry on next run`);
+    summary.push(`${chunk.id}: incomplete (no status line)`);
   }
   if (CHUNK_PAUSE_MS > 0) await sleep(CHUNK_PAUSE_MS);
 }

@@ -141,6 +141,29 @@ node scripts/phase2-driver.ts
 - Each `<id>-runs.json` holds that chunk’s generated runs; each `<id>-cache.json`
   holds the judge scores. These feed Phase 3 analysis.
 
+## 4a. Instance-level resume (daily-cap budget saver)
+
+Because the daily-token cap fails whole instances mid-chunk, a re-run must NOT
+re-spend budget regenerating instances that already succeeded. Each chunk's
+eval script (`judge:eval` / `swe:eval`) therefore reads its own prior runs via
+`RUNS_RESUME_IN` (the driver sets it to the chunk's `-runs.json`) and:
+
+- **carries** every instance that already has its full run set
+  (architectures × `RUNS_PER_INSTANCE` runs) verbatim, and
+- **regenerates only** instances missing ≥1 run (a failed `(instance, arch,
+  run)` tuple leaves no run behind), replacing any partial runs for those
+  instances with a fresh full set.
+
+The chunk is marked `.done` only when the script's authoritative
+`phase2-generation complete=true` line shows every intended instance complete.
+
+This is **byte-neutral to the frozen generation config** (`prompt-freeze-v1`):
+a regenerated instance is produced by the identical model / prompt /
+temperature / architecture / runs — resume only changes *which* instances are
+(re)generated, not *how*. Same standing as the `RUNS_PER_INSTANCE` conformance
+knob; it does not touch the double-freeze line. Logic + tests:
+`src/benchmark/resume-plan.ts`, `tests/unit/benchmark-resume-plan.test.ts`.
+
 ## 5. If it still fails heavily
 
 - **All failures `"…per day…"`** → the quota increase (§1) has not applied yet /
