@@ -19,6 +19,9 @@
  *   LLM_DEFAULT_MODEL / LLM_REGION  — the systems under test (see config/llm.ts)
  *   JUDGE_MODEL (=DEFAULT_JUDGE_CONFIG.modelId) — the non-Anthropic judge
  *   SEMANTIC_THRESHOLD (=0.7) — τ, the semantic rescue cutoff
+ *   CAMPAIGN_CONCURRENCY (=1) — opt-in generation concurrency; 1 = sequential
+ *     (byte-identical to before). >1 runs that many (instance × arch × run)
+ *     entries at once; the judge pass below stays sequential.
  *   RUNS_IN / RUNS_OUT, CACHE_IN / CACHE_OUT — replay artifacts (JSON)
  *   Smoke-test Bedrock first: `npm run smoke:bedrock`.
  */
@@ -65,6 +68,12 @@ const LIMIT = Math.max(1, Number(process.env.BENCHMARK_LIMIT ?? 1));
 const OFFSET = Math.max(0, Number(process.env.BENCHMARK_OFFSET ?? 0));
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
+// Opt-in bounded concurrency for the generation phase (the SUT ladder — the
+// dominant cost). Default 1 = sequential, byte-identical to before. Verified
+// content-equivalent to sequential in
+// tests/unit/campaign-concurrency-consistency.test.ts. Only the CampaignRunner
+// generation is parallelized; the judge precompute below is unchanged.
+const CONCURRENCY = Math.max(1, Number(process.env.CAMPAIGN_CONCURRENCY ?? 1));
 
 const provider = new BedrockProvider();
 
@@ -110,10 +119,11 @@ if (process.env.RUNS_IN && existsSync(process.env.RUNS_IN)) {
     retryPolicy: new RetryPolicy(6),
   });
 
-  console.log(`GENERATE — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}\n`);
+  console.log(`GENERATE — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region} · concurrency=${CONCURRENCY}\n`);
   const report = await runner.run(datasets, {
     campaignId: "judge-eval",
     architectures: ["agentless", "generalists-3", "hierarchical", "consensus"],
+    maxConcurrency: CONCURRENCY,
     // Registered protocol (pre-reg §3.3, freeze manifest): 3 runs/instance for
     // the confirmatory campaign. Default 1 for cheap pilots; set RUNS_PER_INSTANCE=3.
     runsPerInstance: Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 1)),

@@ -6,6 +6,8 @@
  * Run with: `npm run swe:eval`   (Bedrock; smoke-test first: `npm run smoke:bedrock`)
  * Env: BENCHMARK_DATA_DIR (=data/benchmark, reads swe.json), BENCHMARK_LIMIT (=1),
  *      JUDGE_MODEL (=DEFAULT_JUDGE_CONFIG.modelId), SEMANTIC_THRESHOLD (=0.7),
+ *      CAMPAIGN_CONCURRENCY (=1) — opt-in generation concurrency (1 = sequential;
+ *        the judge pass stays sequential),
  *      RUNS_OUT / CACHE_OUT (persist for replay).
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -47,6 +49,10 @@ const LIMIT = Math.max(1, Number(process.env.BENCHMARK_LIMIT ?? 1));
 const OFFSET = Math.max(0, Number(process.env.BENCHMARK_OFFSET ?? 0));
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
+// Opt-in bounded concurrency for the generation phase (SUT ladder). Default 1 =
+// sequential, byte-identical to before; verified content-equivalent in
+// tests/unit/campaign-concurrency-consistency.test.ts. Judge pass stays sequential.
+const CONCURRENCY = Math.max(1, Number(process.env.CAMPAIGN_CONCURRENCY ?? 1));
 
 // `swe-golden.json` is the Martian golden-comment dataset (location-less),
 // distinct from the legacy file+line `swe.json` sample that campaign:live /
@@ -104,10 +110,11 @@ const runner = new CampaignRunner({
   retryPolicy: new RetryPolicy(6),
 });
 
-console.log(`SWE coverage — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}, ${instances.length} PR(s)\n`);
+console.log(`SWE coverage — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}, ${instances.length} PR(s) · concurrency=${CONCURRENCY}\n`);
 const report = await runner.run([genDataset], {
   campaignId: "swe-eval",
   architectures: ["agentless", "generalists-3", "hierarchical", "consensus"],
+  maxConcurrency: CONCURRENCY,
   // Registered protocol (pre-reg §3.3): 3 runs/instance for the confirmatory
   // campaign. Default 1 for cheap pilots; set RUNS_PER_INSTANCE=3.
   runsPerInstance: Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 1)),
