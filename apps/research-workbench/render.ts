@@ -78,13 +78,23 @@ export function layout(title: string, bodyHtml: string): string {
   th { background: #f2f2f2; }
   .btn { display: inline-block; border: 1px solid #444; padding: 0.3rem 0.7rem; margin-right: 0.5rem; text-decoration: none; color: #111; }
   code { background: #f5f5f5; padding: 0 0.2rem; }
+  pre { background: #f5f5f5; padding: 0.6rem; overflow-x: auto; font-size: 0.85rem; }
+  .meta { color: #555; font-size: 0.9rem; }
+  nav .sep { color: #bbb; margin-right: 1rem; }
+  h3 { font-size: 0.98rem; margin: 1rem 0 0.2rem; }
 </style>
 </head>
 <body>
 <nav>
-  ${link("/experiments", "Experiments")}
+  ${link("/", "Results")}
+  ${link("/contrasts", "Contrasts")}
+  ${link("/benchmarks", "SWE-PRBench")}
+  ${link("/cross-family", "Cross-family")}
+  ${link("/prs", "Browse PRs")}
+  <span class="sep">|</span>
+  ${link("/experiments", "Demo")}
   ${link("/comparison", "Comparison")}
-  ${link("/exports", "Export History")}
+  ${link("/exports", "Exports")}
 </nav>
 <h1>${escapeHtml(title)}</h1>
 ${bodyHtml}

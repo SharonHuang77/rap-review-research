@@ -21,6 +21,7 @@
     "demo:export": "node scripts/demo-export.ts",
     "demo:workbench": "node scripts/demo-workbench.ts",
     "dashboard": "node apps/research-workbench/server.ts",
+    "dashboard:prep": "node scripts/dashboard-prep.ts",
     "benchmark:import": "node scripts/benchmark-import.ts",
     "benchmark:run": "node scripts/benchmark-run.ts",
     "benchmark:evaluate": "node scripts/benchmark-evaluate.ts",

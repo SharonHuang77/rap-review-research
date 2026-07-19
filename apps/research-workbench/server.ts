@@ -22,6 +22,16 @@ import {
   renderExportHistory,
 } from "./render.ts";
 import { ExperimentNotFoundError } from "../../src/shared/errors.ts";
+import {
+  loadConfirmatory,
+  renderOverview,
+  renderContrasts,
+  renderBenchmarks,
+  renderCrossFamily,
+  renderPrList,
+  renderPrDetail,
+  notReady,
+} from "./confirmatory.ts";
 
 const PORT = Number(process.env.PORT ?? 4317);
 
@@ -46,9 +56,35 @@ const server = createServer(async (req, res) => {
     const path = url.pathname;
     const q = url.searchParams;
 
-    if (path === "/" || path === "/experiments") {
+    // ---- Confirmatory results (authoritative; the real campaign data) --------
+    const confirmatory = loadConfirmatory();
+    const guard = (title: string, render: (d: NonNullable<typeof confirmatory>) => string): string =>
+      confirmatory ? layout(title, render(confirmatory)) : layout(title, notReady());
+
+    if (path === "/") {
+      return send(res, 200, guard("Confirmatory Results", renderOverview));
+    }
+    if (path === "/contrasts") {
+      return send(res, 200, guard("Paired Contrasts", renderContrasts));
+    }
+    if (path === "/benchmarks") {
+      return send(res, 200, guard("SWE-PRBench Coverage", renderBenchmarks));
+    }
+    if (path === "/cross-family") {
+      return send(res, 200, guard("Cross-Family Precision", renderCrossFamily));
+    }
+    if (path === "/prs") {
+      return send(res, 200, guard("Browse PRs", renderPrList));
+    }
+    if (path === "/pr") {
+      const id = q.get("id") ?? "";
+      return send(res, 200, guard(`PR ${id}`, (d) => renderPrDetail(d, id)));
+    }
+
+    // ---- Demo sample workbench (the original RFC-11 demo) --------------------
+    if (path === "/experiments") {
       const views = await workbench.getExperiments();
-      return send(res, 200, layout("Experiments", renderExperimentList(views)));
+      return send(res, 200, layout("Experiments (demo)", renderExperimentList(views)));
     }
 
     if (path === "/experiment") {
@@ -103,5 +139,9 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Research Dashboard running at http://localhost:${PORT}/`);
-  console.log("Pages: /experiments  /comparison  /exports");
+  console.log("Results: /  /contrasts  /benchmarks  /cross-family  /prs");
+  console.log("Demo:    /experiments  /comparison  /exports");
+  if (!loadConfirmatory()) {
+    console.log("\n⚠  confirmatory-data.json not found — run `npm run dashboard:prep` first.");
+  }
 });

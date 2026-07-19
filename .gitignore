@@ -17,3 +17,8 @@ dist/
 # Phase 2 unattended-driver run artifacts (runs/cache/markers/logs)
 phase2-results/
 phase2-results-selftest/
+
+# Confirmatory raw artifacts synced from S3 (rap-review-research-data bucket).
+# The dashboard reads the derived apps/research-workbench/confirmatory-data.json,
+# which IS committed; regenerate it with `npm run dashboard:prep` after syncing.
+hetero-confirmatory/
