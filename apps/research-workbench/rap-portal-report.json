@@ -1,0 +1,184 @@
+{
+  "meta": {
+    "prs": [
+      "142",
+      "143",
+      "144",
+      "145",
+      "146",
+      "147",
+      "148",
+      "151",
+      "153",
+      "156",
+      "157",
+      "158",
+      "159",
+      "161",
+      "163",
+      "164",
+      "165",
+      "166",
+      "167",
+      "168",
+      "169",
+      "171",
+      "173",
+      "174",
+      "175",
+      "176",
+      "177",
+      "178",
+      "179",
+      "180"
+    ],
+    "runsPerArm": 3,
+    "families": [
+      "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "moonshotai.kimi-k2.5",
+      "zai.glm-5"
+    ],
+    "judges": [
+      "us.amazon.nova-pro-v1:0",
+      "deepseek.v3.2"
+    ],
+    "primary": "depth",
+    "secondary": "perArm+ladder",
+    "note": "Proxy metrics — no human ground truth. PRIMARY=cross-family judge-genuine-by-depth (E1 §4 replication). SECONDARY (proxy, wide CI on ~30 PRs)=per-arm P/R/F1 + ladder; precision=judge-genuine, recall=leave-one-out family-pool coverage."
+  },
+  "perArm": [
+    {
+      "arm": "agentless",
+      "n": 30,
+      "precision": 0.867,
+      "recall": 0.267,
+      "f1": 0.267
+    },
+    {
+      "arm": "generalists-3",
+      "n": 30,
+      "precision": 0.833,
+      "recall": 0.2,
+      "f1": 0.2
+    },
+    {
+      "arm": "hierarchical",
+      "n": 30,
+      "precision": 1,
+      "recall": 0.2,
+      "f1": 0.2
+    },
+    {
+      "arm": "consensus",
+      "n": 30,
+      "precision": 0.884,
+      "recall": 0.1,
+      "f1": 0.099
+    }
+  ],
+  "ladder": [
+    {
+      "label": "agentless vs generalists-3",
+      "metric": "proxy-f1",
+      "armX": "agentless",
+      "armY": "generalists-3",
+      "n": 30,
+      "meanX": 0.267,
+      "meanY": 0.2,
+      "medianDiff": 0,
+      "diffLo": 0,
+      "diffHi": 0,
+      "wilcoxonP": 0.3457785608152695,
+      "cliff": 0.067
+    },
+    {
+      "label": "generalists-3 vs hierarchical",
+      "metric": "proxy-f1",
+      "armX": "generalists-3",
+      "armY": "hierarchical",
+      "n": 30,
+      "meanX": 0.2,
+      "meanY": 0.2,
+      "medianDiff": 0,
+      "diffLo": 0,
+      "diffHi": 0,
+      "wilcoxonP": 0.9999999989999999,
+      "cliff": 0
+    },
+    {
+      "label": "hierarchical vs consensus",
+      "metric": "proxy-f1",
+      "armX": "hierarchical",
+      "armY": "consensus",
+      "n": 30,
+      "meanX": 0.2,
+      "meanY": 0.099,
+      "medianDiff": 0,
+      "diffLo": 0,
+      "diffHi": 0,
+      "wilcoxonP": 0.08897295240278691,
+      "cliff": 0.107
+    }
+  ],
+  "depth": {
+    "hetero": [
+      {
+        "depth": 1,
+        "genuine": 876,
+        "total": 876
+      },
+      {
+        "depth": 2,
+        "genuine": 23,
+        "total": 23
+      },
+      {
+        "depth": 3,
+        "genuine": 5,
+        "total": 5
+      }
+    ],
+    "homo": [
+      {
+        "depth": 3,
+        "genuine": 170,
+        "total": 170
+      }
+    ]
+  },
+  "triangulation": {
+    "staticByDepth": [],
+    "laterFixByDepth": []
+  },
+  "judgeKappa": 0.032749428789032795,
+  "cost": [
+    {
+      "arm": "agentless",
+      "llmCalls": 1,
+      "messageCount": 1,
+      "latencyMs": 13238.333,
+      "estimatedCostUsd": 0
+    },
+    {
+      "arm": "generalists-3",
+      "llmCalls": 3,
+      "messageCount": 3,
+      "latencyMs": 38053.367,
+      "estimatedCostUsd": 0
+    },
+    {
+      "arm": "hierarchical",
+      "llmCalls": 3,
+      "messageCount": 8,
+      "latencyMs": 45721.167,
+      "estimatedCostUsd": 0
+    },
+    {
+      "arm": "consensus",
+      "llmCalls": 9,
+      "messageCount": 22,
+      "latencyMs": 173150.633,
+      "estimatedCostUsd": 0
+    }
+  ]
+}
