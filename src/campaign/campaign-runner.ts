@@ -73,6 +73,12 @@ export interface CampaignRunnerDependencies {
   readonly benchmarkExporter?: BenchmarkCsvExporter;
   readonly exportService?: IExportService;
   readonly retryPolicy?: RetryPolicy;
+  /**
+   * Base backoff (ms) between retry attempts; the wait is exponential
+   * (`base · 2^(attempt-1)`, capped at 30s) so a Bedrock throttling window has
+   * time to clear before re-attempting. Default 2000; set 0 in tests.
+   */
+  readonly retryBackoffMs?: number;
   readonly reporter?: ProgressReporter;
   readonly manifestStore?: ManifestStore;
   readonly clock?: Clock;
@@ -116,6 +122,7 @@ export class CampaignRunner {
   private readonly benchmarkExporter: BenchmarkCsvExporter;
   private readonly exportService: IExportService;
   private readonly retryPolicy: RetryPolicy;
+  private readonly retryBackoffMs: number;
   private readonly clock: Clock;
 
   public constructor(deps: CampaignRunnerDependencies) {
@@ -126,6 +133,7 @@ export class CampaignRunner {
     this.benchmarkExporter = deps.benchmarkExporter ?? new BenchmarkCsvExporter();
     this.exportService = deps.exportService ?? createExportService();
     this.retryPolicy = deps.retryPolicy ?? new RetryPolicy();
+    this.retryBackoffMs = deps.retryBackoffMs ?? 2000;
     this.clock = deps.clock ?? new SystemClock();
   }
 
@@ -315,6 +323,12 @@ export class CampaignRunner {
           manifest.update(key, { status: "retry-scheduled", error: message });
           reporter.runRetry(key, attempts, message);
           await this.deps.manifestStore?.save(manifest.toJSON());
+          // Exponential backoff so a Bedrock throttling window clears before we
+          // re-attempt (immediate retries during a throttle just fail again).
+          const waitMs = Math.min(30_000, this.retryBackoffMs * 2 ** (attempts - 1));
+          if (waitMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
+          }
           continue;
         }
         // Terminal failure: record it, but never abort the campaign.

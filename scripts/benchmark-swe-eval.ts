@@ -27,7 +27,7 @@ import { BedrockProvider } from "../src/llm/provider/bedrock-provider.ts";
 import { LLM_CONFIG } from "../src/config/llm.ts";
 import { ProviderRateLimitError, ProviderTimeoutError } from "../src/llm/errors.ts";
 
-import { CampaignRunner, InMemoryManifestStore, ProgressReporter } from "../src/campaign/index.ts";
+import { CampaignRunner, InMemoryManifestStore, ProgressReporter, RetryPolicy } from "../src/campaign/index.ts";
 import type { BenchmarkDataset, BenchmarkInstance } from "../src/benchmark/index.ts";
 import type { GoldenComment } from "../src/benchmark/models/golden-comment.ts";
 import { SweGoldenAdapter } from "../src/benchmark/adapters/swe-golden-adapter.ts";
@@ -43,6 +43,8 @@ if (LLM_CONFIG.provider !== "bedrock") {
 
 const DATA_DIR = resolve(process.env.BENCHMARK_DATA_DIR ?? "data/benchmark");
 const LIMIT = Math.max(1, Number(process.env.BENCHMARK_LIMIT ?? 1));
+// Chunked/resumable runs: process instances [OFFSET, OFFSET+LIMIT).
+const OFFSET = Math.max(0, Number(process.env.BENCHMARK_OFFSET ?? 0));
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
 
@@ -56,7 +58,7 @@ if (!existsSync(swePath)) {
   process.exit(1);
 }
 const sweDataset = new SweGoldenAdapter().toDataset(JSON.parse(readFileSync(swePath, "utf8")));
-const instances = sweDataset.instances.slice(0, LIMIT);
+const instances = sweDataset.instances.slice(OFFSET, OFFSET + LIMIT);
 if (instances.length === 0) {
   console.error(`No instances in ${swePath} (after BENCHMARK_LIMIT=${LIMIT}).`);
   process.exit(1);
@@ -98,12 +100,17 @@ const runner = new CampaignRunner({
   storage: experimentCtx.storage,
   reporter: new ProgressReporter({ sink: (line) => console.log(line) }),
   manifestStore: new InMemoryManifestStore(),
+  // More attempts + exponential backoff to ride out Bedrock throttling.
+  retryPolicy: new RetryPolicy(6),
 });
 
 console.log(`SWE coverage — model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}, ${instances.length} PR(s)\n`);
 const report = await runner.run([genDataset], {
   campaignId: "swe-eval",
   architectures: ["agentless", "generalists-3", "hierarchical", "consensus"],
+  // Registered protocol (pre-reg §3.3): 3 runs/instance for the confirmatory
+  // campaign. Default 1 for cheap pilots; set RUNS_PER_INSTANCE=3.
+  runsPerInstance: Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 1)),
   modelVersion: LLM_CONFIG.defaultModel,
   promptVersion: "v1",
   workflowVersion: "workflow-v1",
