@@ -20,10 +20,26 @@
  *           adversarial criteria x K stochastic samples -> mean score in [0,1],
  *           thresholded at a swept tau. Panel = mean over V3_MODELS families.
  *
+ *   V2.5    exclusion-first binary verifier. Same batched shape as V2, but the
+ *           prompt is dominated by domain calibration rather than a bare
+ *           question: HARD EXCLUSIONS (what is never a finding), PRECEDENTS
+ *           (adjudicated edge cases distilled from this benchmark's observed
+ *           false-positive patterns), a SCENARIO TEST (a finding the verifier
+ *           cannot write a concrete failure scenario for must be rejected),
+ *           an explicit reject-by-default cost statement, and 0-10 confidence
+ *           gating. Pattern borrowed from Claude Code's production
+ *           security-review prompt (hard-exclusion list + precedent "case
+ *           law" + confidence floor), which solves exactly the failure V2
+ *           exhibited: a binary judge with no calibration approves ~everything
+ *           (17% rejection, AUC ~0.5). Confidence is cached (not booleans), so
+ *           threshold sweeps replay free. Hypothesis: domain precedents >
+ *           rubric structure (V3) > raw judge intelligence (V2).
+ *
  * Run:  RUNS_IN=<runs.json> CACHE_IN=<cache.json> npm run bon:eval
  * Env:  SEMANTIC_THRESHOLD (=0.7), BON_OUT (optional JSON report)
  *       VERIFIER_MODEL (e.g. deepseek.v3.2 — enables V2)
  *       VERIFIER_CACHE (V2 verdict cache JSON, read+write)
+ *       V25_MODEL (enables V2.5), V25_CACHE (verdict+confidence cache JSON)
  *       V3_MODELS (comma-separated model ids — enables V3), V3_K (=3),
  *       V3_CACHE (V3 raw-score cache JSON, read+write)
  *       BON_INSTANCES (comma-separated instanceId filter — smoke runs)
@@ -210,6 +226,121 @@ async function runVerifier(diffByInstance: Map<string, string>): Promise<{ verdi
       });
       if (VERIFIER_CACHE) writeFileSync(VERIFIER_CACHE, JSON.stringify(verdicts, null, 1)); // checkpoint
       console.log(`  V2 ${arch}/${instanceId}: judged ${reps.length} findings`);
+    }
+  }
+  return { verdicts, calls, unparseable };
+}
+
+// --- V2.5: exclusion-first binary verifier (see header) -----------------------
+const V25_MODEL = process.env.V25_MODEL;
+const V25_CACHE = process.env.V25_CACHE;
+type V25Verdict = { readonly real: boolean; readonly conf: number };
+type V25Map = Record<string, V25Verdict>; // findingKey25 -> verdict
+const findingKey25 = (instanceId: string, f: Finding): string =>
+  `${V25_MODEL}|${instanceId}|${f.file}|${f.line}|${f.title}`;
+
+// Exclusions and precedents are the calibration payload. The precedents are
+// distilled from THIS pipeline's observed false-positive patterns (doc 08 +
+// the golden-completeness audit): generic hardening advice, claims about
+// untouched code, diff-contradicted claims, and style dressed up as defects.
+const V25_RULES =
+  `HARD EXCLUSIONS — reject any finding that is:\n` +
+  `E1. Style, naming, formatting, comment wording, or code-organization advice — regardless of its stated severity.\n` +
+  `E2. Generic hardening advice ("add validation", "add error handling", "consider rate limiting", "sanitize input") with no specific broken input identified.\n` +
+  `E3. Speculation about code the diff does not touch: claims about files or functions visible only as unchanged context, unless a changed line directly interacts with them.\n` +
+  `E4. Missing tests, missing documentation, or missing logging.\n` +
+  `E5. A theoretical performance concern with no evident hot path in the diff.\n` +
+  `E6. A claim the diff itself contradicts (e.g. "X is never checked" when a changed line checks X — read the surrounding hunk).\n` +
+  `E7. Concerns purely about error-message text or log wording.\n\n` +
+  `PRECEDENTS — adjudicated edge cases; follow them:\n` +
+  `P1. "Missing null/undefined/bounds check" is real ONLY when a concrete input reaching the new code produces the bad value; otherwise it is E2.\n` +
+  `P2. If neighbouring lines of the same hunk already handle the case the finding describes, the finding is wrong.\n` +
+  `P3. A defect visibly introduced on added/changed lines — inverted condition, wrong variable, off-by-one, missing await on a new async call, a resource acquired on a new path and never released — is the target class: approve with high confidence.\n` +
+  `P4. A security finding needs an attacker-controlled input path visible in the diff; "could be exploited if user-controlled" without showing the path is E2.\n` +
+  `P5. Behavior that is clearly intentional in the PR's context (the diff deliberately renames/removes/changes something and the finding reports it as accidental) is not real.\n` +
+  `P6. Torn between "real but minor" and "not real"? The scenario decides: crisp and mechanically checkable → real with conf 5-7; vague → not real.\n\n` +
+  `SCENARIO TEST — for each finding FIRST write a one-line failure scenario (<=15 words): the concrete ` +
+  `input or state and the wrong outcome (e.g. "empty list -> index -1 -> crash"). If you cannot write ` +
+  `one, set "scenario":"none" and the finding MUST be rejected.\n\n` +
+  `CONFIDENCE — 0-10: 8-10 certain, you would flag it in a real PR review; 5-7 plausible but unproven; 0-4 speculative or noise.`;
+
+async function runVerifier25(diffByInstance: Map<string, string>): Promise<{ verdicts: V25Map; calls: number; unparseable: number }> {
+  const verdicts: V25Map =
+    V25_CACHE && existsSync(V25_CACHE) ? (JSON.parse(readFileSync(V25_CACHE, "utf8")) as V25Map) : {};
+  const provider = new BedrockProvider();
+  let calls = 0;
+  let unparseable = 0;
+
+  for (const [arch, archPools] of pools) {
+    for (const [instanceId, pool] of archPools) {
+      const reps = pool.clusters.map((c) => c.rep);
+      if (reps.length === 0) continue;
+      if (reps.every((f) => findingKey25(instanceId, f) in verdicts)) continue; // cache hit
+      const diff = diffByInstance.get(instanceId);
+      if (!diff) {
+        console.warn(`  no diff for ${instanceId} — keeping its findings unverified`);
+        continue;
+      }
+      const list = reps
+        .map((f, i) => `${i + 1}. [${f.file}:${f.line}] ${f.title} — ${f.description ?? ""}`.slice(0, 700))
+        .join("\n");
+      const userPrompt =
+        `UNIFIED DIFF:\n${diff.slice(0, DIFF_BUDGET)}\n\n` +
+        `CANDIDATE REVIEW FINDINGS (${reps.length}):\n${list}\n\n` +
+        `TASK: for EACH finding decide whether it is a real, correct issue actually introduced or ` +
+        `evidenced by this diff. Your default is REJECT: approve only what survives the exclusions, ` +
+        `precedents, and scenario test below. Missing a marginal issue is acceptable; approving noise is not.\n\n` +
+        `${V25_RULES}\n\n` +
+        `Respond ONLY with JSON: {"verdicts":[{"n":1,"scenario":"...","real":true|false,"conf":<0-10>}, ...]} ` +
+        `covering every finding number 1..${reps.length}.`;
+
+      let text = "";
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        try {
+          const res = await provider.review({
+            modelId: V25_MODEL!,
+            systemPrompt:
+              "You are a strict code-review verifier with a reject-by-default policy. Judge findings only " +
+              "against the provided diff. Better to miss a marginal issue than to approve noise. Output JSON only.",
+            userPrompt,
+            temperature: 0,
+            maxTokens: 3000,
+          });
+          text = res.text;
+          calls += 1;
+          break;
+        } catch (error) {
+          const transient = error instanceof ProviderRateLimitError || error instanceof ProviderTimeoutError;
+          if (!transient || attempt === 4) throw error;
+          await new Promise((r) => setTimeout(r, 2000 * 2 ** (attempt - 1)));
+        }
+      }
+
+      let parsed: { verdicts?: { n?: number; real?: boolean; conf?: number }[] } | null = null;
+      try {
+        parsed = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+      } catch {
+        parsed = null;
+      }
+      const byN = new Map(
+        (parsed?.verdicts ?? [])
+          .filter((v) => typeof v.n === "number")
+          .map((v) => [v.n, { real: v.real === true, conf: Math.max(0, Math.min(10, Number(v.conf ?? 0))) }]),
+      );
+      reps.forEach((f, i) => {
+        const verdict = byN.get(i + 1);
+        // Missing/unparseable verdict = abstained. Sentinel conf -1: kept at
+        // every threshold, excluded from the AUC/rejection diagnostics, and
+        // cached so a resume does not re-pay for it.
+        if (verdict === undefined) {
+          unparseable += 1;
+          verdicts[findingKey25(instanceId, f)] = { real: true, conf: -1 };
+        } else {
+          verdicts[findingKey25(instanceId, f)] = verdict;
+        }
+      });
+      if (V25_CACHE) writeFileSync(V25_CACHE, JSON.stringify(verdicts, null, 1)); // checkpoint
+      console.log(`  V2.5 ${arch}/${instanceId}: judged ${reps.length} findings`);
     }
   }
   return { verdicts, calls, unparseable };
@@ -414,7 +545,7 @@ function pooledRuns(
 }
 
 async function main(): Promise<void> {
-  const needDiffs = Boolean(VERIFIER_MODEL) || V3_MODELS.length > 0;
+  const needDiffs = Boolean(VERIFIER_MODEL) || Boolean(V25_MODEL) || V3_MODELS.length > 0;
   const diffs = needDiffs ? loadDiffs() : new Map<string, string>();
 
   let verdicts: VerdictMap | null = null;
@@ -423,6 +554,14 @@ async function main(): Promise<void> {
     const res = await runVerifier(diffs);
     verdicts = res.verdicts;
     console.log(`V2 done — ${res.calls} model calls, ${res.unparseable} abstained/unparseable (kept)`);
+  }
+
+  let verdicts25: V25Map | null = null;
+  if (V25_MODEL) {
+    console.log(`\nV2.5 verifier: ${V25_MODEL} (exclusion-first, scenario-gated, cached: ${V25_CACHE ?? "no"})`);
+    const res = await runVerifier25(diffs);
+    verdicts25 = res.verdicts;
+    console.log(`V2.5 done — ${res.calls} model calls, ${res.unparseable} abstained/unparseable (kept)`);
   }
 
   let v3score: ((instanceId: string, f: Finding) => number | undefined) | null = null;
@@ -435,6 +574,12 @@ async function main(): Promise<void> {
 
   const judgedReal = (instanceId: string, c: Cluster): boolean =>
     verdicts?.[findingKey(instanceId, c.rep)] ?? true;
+  // V2.5 keep: abstain (missing or sentinel conf -1) -> keep; else real AND conf >= t.
+  const keep25 = (t: number) => (c: Cluster, instanceId: string): boolean => {
+    const v = verdicts25?.[findingKey25(instanceId, c.rep)];
+    if (!v || v.conf < 0) return true;
+    return v.real && v.conf >= t;
+  };
   const v3Keep = (tau: number) => (c: Cluster, instanceId: string): boolean => {
     const s = v3score?.(instanceId, c.rep);
     return s === undefined ? true : s >= tau; // abstain -> keep
@@ -453,6 +598,17 @@ async function main(): Promise<void> {
         evaluateRow(
           `  ${arch} V1k2+V2`,
           pooledRuns(arch, "v1k2v2", (c, id) => c.runsWith.size >= 2 && judgedReal(id, c)),
+        ),
+      );
+    }
+    if (verdicts25) {
+      for (const t of [6, 8]) {
+        rows.push(evaluateRow(`  ${arch} V2.5 c≥${t}`, pooledRuns(arch, `v25c${t}`, (c, id) => keep25(t)(c, id))));
+      }
+      rows.push(
+        evaluateRow(
+          `  ${arch} V1k2+V2.5c8`,
+          pooledRuns(arch, "v1k2v25", (c, id) => c.runsWith.size >= 2 && keep25(8)(c, id)),
         ),
       );
     }
@@ -501,6 +657,43 @@ async function main(): Promise<void> {
     );
   }
 
+  // V2.5 discrimination diagnostic — same test V2 failed (17% rejection, AUC
+  // ~0.5) and V3 half-passed (AUC 0.68, no F1 gain). Abstentions excluded.
+  if (verdicts25) {
+    const normPath = (p: string): string => p.trim().replace(/^\.\//, "");
+    const matched: number[] = [];
+    const unmatched: number[] = [];
+    let rejected = 0;
+    let judged = 0;
+    for (const [, archPools] of pools) {
+      for (const [instanceId, pool] of archPools) {
+        const golden = pool.template.groundTruth;
+        for (const c of pool.clusters) {
+          const v = verdicts25[findingKey25(instanceId, c.rep)];
+          if (!v || v.conf < 0) continue;
+          judged += 1;
+          if (!(v.real && v.conf >= 8)) rejected += 1;
+          const hits = golden.some(
+            (g) => normPath(g.file) === normPath(c.rep.file) && c.rep.line >= g.lineStart && c.rep.line <= g.lineEnd,
+          );
+          // Effective score: rejects rank below any approval, then by confidence.
+          (hits ? matched : unmatched).push(v.real ? v.conf / 10 : -1 + v.conf / 100);
+        }
+      }
+    }
+    const mean = (xs: number[]): number => (xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN);
+    let wins = 0;
+    let ties = 0;
+    for (const a of matched) for (const b of unmatched) { if (a > b) wins += 1; else if (a === b) ties += 1; }
+    const auc = matched.length && unmatched.length ? (wins + ties / 2) / (matched.length * unmatched.length) : NaN;
+    console.log(
+      `\nV2.5 discrimination: rejection rate ${judged ? ((rejected / judged) * 100).toFixed(0) : "–"}% at c≥8 ` +
+        `(V2: 17%); mean eff-score golden-matched ${mean(matched).toFixed(2)} (n=${matched.length}) vs ` +
+        `non-matched ${mean(unmatched).toFixed(2)} (n=${unmatched.length}) — AUC ${auc.toFixed(2)} ` +
+        `(V2 ~0.5, V3 0.68)`,
+    );
+  }
+
   console.log(`\n=== VF-BoN vs the ladder — strict (file+line) vs semantic (judge τ=${TAU}) ===`);
   console.log("variant".padEnd(26) + "  n    findings/run   P(s)→P(sem)   R(s)→R(sem)   F1(s)→F1(sem)");
   for (const row of rows) {
@@ -518,7 +711,10 @@ async function main(): Promise<void> {
   );
 
   if (process.env.BON_OUT) {
-    writeFileSync(process.env.BON_OUT, JSON.stringify({ tau: TAU, runsIn, verifier: VERIFIER_MODEL ?? null, rows }, null, 2));
+    writeFileSync(
+      process.env.BON_OUT,
+      JSON.stringify({ tau: TAU, runsIn, verifier: VERIFIER_MODEL ?? null, verifier25: V25_MODEL ?? null, rows }, null, 2),
+    );
     console.log(`report → ${process.env.BON_OUT}`);
   }
 }
