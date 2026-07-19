@@ -155,6 +155,73 @@ export function holmBonferroni(pvalues: readonly number[]): number[] {
   return adj;
 }
 
+/**
+ * Paired per-unit rate data (one unit = one PR). Each unit contributes two rates
+ * as hits/N: `x` (e.g. the hetero all-3-family stratum) and `y` (e.g. the same
+ * model's 3-run stratum). Used for corroboration-depth golden-match rates, where
+ * many units contribute 0 clusters and a per-unit ratio would be undefined.
+ */
+export interface RatePair {
+  readonly xHits: number;
+  readonly xN: number;
+  readonly yHits: number;
+  readonly yN: number;
+}
+
+/**
+ * Pooled (micro-averaged) rate gap x−y over units: (Σ xHits / Σ xN) − (Σ yHits /
+ * Σ yN). Empty denominators yield a 0 rate rather than NaN. Micro-averaging is
+ * the right pooling when per-unit counts are small/sparse (a unit with 1 cluster
+ * should not weigh as much as one with 20).
+ */
+export function pooledRateGap(units: readonly RatePair[]): {
+  xRate: number;
+  yRate: number;
+  gap: number;
+} {
+  let sx = 0;
+  let nx = 0;
+  let sy = 0;
+  let ny = 0;
+  for (const u of units) {
+    sx += u.xHits;
+    nx += u.xN;
+    sy += u.yHits;
+    ny += u.yN;
+  }
+  const xRate = nx > 0 ? sx / nx : 0;
+  const yRate = ny > 0 ? sy / ny : 0;
+  return { xRate, yRate, gap: xRate - yRate };
+}
+
+/**
+ * Percentile bootstrap CI for the pooled rate gap, resampling whole UNITS (PRs)
+ * with replacement — the correct scheme when the stratum is sparse per unit
+ * (each PR keeps its counts together). Seeded for reproducibility.
+ */
+export function bootstrapRateGapCI(
+  units: readonly RatePair[],
+  opts: { iters?: number; seed?: number; alpha?: number } = {},
+): CI {
+  const iters = opts.iters ?? 2000;
+  const alpha = opts.alpha ?? 0.05;
+  const rng = mulberry32(opts.seed ?? 12345);
+  const n = units.length;
+  const point = pooledRateGap(units).gap;
+  if (n === 0) return { point, lo: point, hi: point };
+
+  const samples = new Array<number>(iters);
+  for (let it = 0; it < iters; it += 1) {
+    const resample = new Array<RatePair>(n);
+    for (let i = 0; i < n; i += 1) resample[i] = units[Math.floor(rng() * n)]!;
+    samples[it] = pooledRateGap(resample).gap;
+  }
+  samples.sort((x, y) => x - y);
+  const lo = samples[Math.floor((alpha / 2) * iters)] ?? point;
+  const hi = samples[Math.min(iters - 1, Math.ceil((1 - alpha / 2) * iters) - 1)] ?? point;
+  return { point, lo, hi };
+}
+
 export function mean(xs: readonly number[]): number {
   return xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0;
 }
