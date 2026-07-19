@@ -12,6 +12,60 @@
 
 ---
 
+## Comparability Contract (shared frozen config with E1/E2 — do not deviate)
+
+E3 is a third dataset column and an **external replication of E1**. To be
+apples-to-apples, every knob below is **identical to E1** (`phase3-stats.ts`,
+`phase3-hetero-stats.ts`, freeze-manifest v1+v2). The ONLY intended differences
+are the dataset (real, unlabeled PRs) and two clearly-labeled proxies
+(judge-genuine precision, pool-coverage recall).
+
+**Frozen identical to E1 (any deviation breaks comparability):**
+- **Arms:** `agentless, generalists-3, hierarchical, consensus`; SUT = Claude
+  Haiku 4.5; frozen **v1** prompt; temp `0` / maxTokens `4096`; **3 runs/arm**;
+  PR = unit = mean of 3 runs.
+- **Cross-family axis:** `agentless` × {Haiku 4.5, Kimi K2.5, GLM 5}, 3 runs each,
+  unchanged v1 prompt.
+- **Finding↔finding clustering = the Nova Pro pair judge**, **τ_pair = 0.7**,
+  union-find, via `src/benchmark/matching/finding-pair-judge.ts`
+  (`clusterFindingsSemantically` + `FindingPairScoreCache`). **NOT**
+  `FindingSimilarity` (token-Jaccard). This is the SAME semantic instrument E1
+  uses for its depth table (doc 09 fairness rule 1); anything else makes the
+  replication non-comparable. Corroboration **depth = number of distinct model
+  families** in a semantic cluster (1/2/3).
+- **Stats:** `src/analysis/stats.ts` — paired Wilcoxon, Cliff's δ, seeded
+  2000-iter bootstrap CIs, Holm within family.
+- **Judges non-circular:** Nova Pro pair judge (family disjoint from every
+  reviewer) + DeepSeek V3.2 second judge with reported κ.
+
+**Analysis hierarchy (matches doc 13 §2 — keep the plan/paper faithful to it):**
+- **PRIMARY (confirmatory external validity):** the cross-family
+  judge-genuine-**by-depth** table, replicating E1 §4 (89% vs 54%). Task 4.
+- **SECONDARY (corroborating replication, proxy):** per-arm proxy-P/R/F1 ladder
+  (H1/H2/H3). Task 3/5. Reported with wide-CI caveats on ~30 PRs; a null or noisy
+  ladder result does **not** threaten the E3 contribution.
+
+**Proxy definitions (the only intended differences from E1):**
+- **proxy-precision** = independent-judge "genuine?" rate. The judge PROMPT is the
+  SAME "is this a genuine problem, given the diff?" prompt as E1's completeness
+  pass (`scripts/phase3-fp-completeness.ts`), so the proxy is measured with E1's
+  instrument.
+- **proxy-recall** = leave-one-out **pool coverage**. Pool clusters = corroborated
+  by **≥2 of the 3 model FAMILIES** (families are the independent sources; the
+  four architectures are NOT independent sources — they share Haiku).
+  **Leave-one-out excludes the Haiku family source when scoring ANY Haiku
+  architecture arm (all four),** so every arm is scored against the same
+  {Kimi, GLM} pool and the ladder comparison is symmetric.
+- **Static analysis is NOT a pool member** — it is a separate triangulation signal
+  and a sensitivity-pool robustness check (Task 7). This keeps the recall
+  reference stable across PRs (static coverage is best-effort and uneven).
+
+**Power note:** ~30 PRs yields thin depth-3 buckets vs E1's 137 findings / 80 PRs.
+Report the depth replication with honest wide CIs; prefer **40–50 PRs** if the
+Bedrock budget allows.
+
+---
+
 ## File Structure
 
 **Create:**
@@ -132,13 +186,24 @@ git commit -m "feat(e3): industrial study shared types (arms, runs, judge cache,
 - Create: `src/industrial/finding-pool.ts`
 - Test: `tests/unit/industrial-finding-pool.test.ts`
 
-A **pool cluster** is a finding corroborated by ≥2 independent sources (the 3 families + static). Uses `FindingSimilarity` (token-Jaccard + line overlap) to decide whether two findings are "the same." `poolCoverage` measures an arm's recall against the pool, rebuilding the pool **excluding a named source** (leave-one-out) so an arm can't grade its own homework.
+> ⚠️ **Comparability override (see Comparability Contract).** The snippet below
+> uses `FindingSimilarity` (token-Jaccard) as an illustration only. For E3 to be
+> comparable to E1, `buildPool`/`poolCoverage` **must cluster via the Nova pair
+> judge** — `clusterFindingsSemantically(members, pairCache, 0.7)` +
+> `FindingPairScoreCache` from `src/benchmark/matching/finding-pair-judge.ts`
+> (exactly as `scripts/phase3-hetero-stats.ts`). Thread a `pairCache` argument
+> through from the report (Task 5). **Pool sources = the 3 model families only**
+> (Haiku/Kimi/GLM) — NOT static analysis (static is triangulation only, Task 7).
+> Keep the leave-one-out mechanism, but it excludes a **family** (see Task 5).
+
+A **pool cluster** is a finding corroborated by ≥2 independent model-family sources. Two findings are "the same" per the Nova semantic pair judge (τ_pair=0.7), the same instrument E1 uses. `poolCoverage` measures an arm's recall against the pool, rebuilding the pool **excluding a named family** (leave-one-out) so an arm can't grade its own homework.
 
 - [ ] **Step 1: Write the failing test.** Create `tests/unit/industrial-finding-pool.test.ts`:
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildPool, poolCoverage } from "../../src/industrial/finding-pool.ts";
+import { FindingPairScoreCache } from "../../src/benchmark/matching/finding-pair-judge.ts";
 import type { ReviewFinding } from "../../src/models/finding.ts";
 
 const f = (id: string, file: string, line: number, title: string): ReviewFinding => ({
@@ -146,36 +211,45 @@ const f = (id: string, file: string, line: number, title: string): ReviewFinding
   description: title, recommendation: "fix", confidence: 0.7,
 });
 
+// Seed a pair cache so clustering is deterministic and zero-LLM.
+const cacheOf = (pairs: [ReviewFinding, ReviewFinding, number][]): FindingPairScoreCache => {
+  const c = new FindingPairScoreCache();
+  for (const [a, b, s] of pairs) c.set(a, b, s);
+  return c;
+};
+
 test("a finding seen by >=2 sources enters the pool; a lone finding does not", () => {
+  const a = f("a", "src/x.ts", 10, "null deref");
+  const c = f("c", "src/x.ts", 10, "null dereference"); // pair judge says a≈c
+  const d = f("d", "src/z.ts", 99, "unused var");       // lone → excluded
   const sources = new Map<string, ReviewFinding[]>([
-    ["haiku", [f("a", "src/x.ts", 10, "null deref"), f("b", "src/y.ts", 3, "unused var")]],
-    ["kimi",  [f("c", "src/x.ts", 10, "null dereference")]], // matches "a" (same file/line, similar title)
-    ["static", [f("d", "src/z.ts", 99, "no-undef")]],        // lone → excluded
+    ["haiku", [a]], ["kimi", [c]], ["glm", [d]],
   ]);
-  const pool = buildPool(sources, { minSources: 2 });
+  const pool = buildPool(sources, cacheOf([[a, c, 0.9]]), { minSources: 2 });
   assert.equal(pool.length, 1);
   assert.deepEqual([...pool[0]!.sources].sort(), ["haiku", "kimi"]);
 });
 
 test("poolCoverage = fraction of clusters an arm's findings match", () => {
+  const a = f("a", "src/x.ts", 10, "null deref");
+  const c = f("c", "src/x.ts", 10, "null deref");
+  const e = f("e", "src/y.ts", 5, "race condition");
+  const g = f("g", "src/y.ts", 5, "race condition");
+  const h = f("h", "src/x.ts", 10, "possible null deref"); // arm finding, matches cluster 1 only
   const sources = new Map<string, ReviewFinding[]>([
-    ["haiku", [f("a", "src/x.ts", 10, "null deref")]],
-    ["kimi",  [f("c", "src/x.ts", 10, "null deref")]],
-    ["glm",   [f("e", "src/y.ts", 5, "race condition")]],
-    ["static",[f("g", "src/y.ts", 5, "race condition")]],
+    ["haiku", [a]], ["kimi", [c]], ["glm", [e]], ["static", [g]],
   ]);
-  const pool = buildPool(sources, { minSources: 2 }); // 2 clusters
-  const arm = [f("h", "src/x.ts", 10, "possible null deref")]; // matches cluster 1 only
-  assert.equal(poolCoverage(arm, pool), 0.5);
+  const cache = cacheOf([[a, c, 0.9], [e, g, 0.9], [h, a, 0.8]]);
+  const pool = buildPool(sources, cache, { minSources: 2 }); // 2 clusters
+  assert.equal(poolCoverage([h], pool, cache), 0.5);
 });
 
 test("leave-one-out rebuilds the pool without the excluded source", () => {
-  const sources = new Map<string, ReviewFinding[]>([
-    ["haiku", [f("a", "src/x.ts", 10, "null deref")]],
-    ["kimi",  [f("c", "src/x.ts", 10, "null deref")]],
-  ]);
-  // Excluding kimi leaves haiku's finding with only 1 source → no clusters → coverage undefined→0.
-  const pool = buildPool(sources, { minSources: 2, excludeSource: "kimi" });
+  const a = f("a", "src/x.ts", 10, "null deref");
+  const c = f("c", "src/x.ts", 10, "null deref");
+  const sources = new Map<string, ReviewFinding[]>([["haiku", [a]], ["kimi", [c]]]);
+  // Excluding kimi leaves haiku's finding with only 1 source → no >=2 clusters.
+  const pool = buildPool(sources, cacheOf([[a, c, 0.9]]), { minSources: 2, excludeSource: "kimi" });
   assert.equal(pool.length, 0);
 });
 ```
@@ -185,48 +259,90 @@ test("leave-one-out rebuilds the pool without the excluded source", () => {
 - [ ] **Step 3: Implement.** Create `src/industrial/finding-pool.ts`:
 ```ts
 // Pooled pseudo-ground-truth for E3 (no human ground truth). A cluster is a
-// finding corroborated by >=2 independent sources; leave-one-out excludes a
-// named source so an arm never defines the reference it's scored against.
+// finding corroborated by >=2 independent SOURCES (model families), clustered
+// with the SAME Nova pair judge E1 uses (finding-pair-judge). Leave-one-out
+// excludes a named source so an arm never defines the reference it's scored
+// against. Zero-LLM: all pair scores come from the persisted cache.
 import type { ReviewFinding } from "../models/finding.ts";
-import { FindingSimilarity } from "../evaluation/industrial/finding-similarity.ts";
+import {
+  clusterFindingsSemantically,
+  type FindingPairScoreCache,
+  type MemberFinding,
+} from "../benchmark/matching/finding-pair-judge.ts";
+
+/** Frozen pair-judge threshold — identical to E1 (Comparability Contract). */
+export const TAU_PAIR = 0.7;
 
 export interface PoolCluster {
-  representative: ReviewFinding;
-  sources: Set<string>;
+  rep: ReviewFinding;
+  sources: Set<string>;      // distinct source labels corroborating this issue
+  findings: ReviewFinding[];
 }
 export interface BuildPoolOptions {
-  minSources?: number;    // default 2
-  excludeSource?: string; // leave-one-out
+  minSources?: number;       // default 2
+  excludeSource?: string;    // leave-one-out (drop this source label)
+  threshold?: number;        // pair-judge τ, default TAU_PAIR
 }
 
-const sim = new FindingSimilarity();
-
-/** Cluster findings across sources; keep clusters hit by >= minSources distinct sources. */
+/**
+ * Cluster findings across sources with the Nova pair judge, keeping clusters hit
+ * by >= minSources distinct sources. `sourceFindings` maps a source LABEL (a
+ * model family such as the Haiku/Kimi/GLM agentless review) to its findings.
+ */
 export function buildPool(
   sourceFindings: ReadonlyMap<string, ReviewFinding[]>,
+  cache: FindingPairScoreCache,
   options: BuildPoolOptions = {},
 ): PoolCluster[] {
   const minSources = options.minSources ?? 2;
-  const clusters: PoolCluster[] = [];
+  const threshold = options.threshold ?? TAU_PAIR;
+  const labels: string[] = [];
+  const members: MemberFinding[] = [];
   for (const [source, findings] of sourceFindings) {
     if (source === options.excludeSource) continue;
-    for (const finding of findings) {
-      const hit = clusters.find((c) => sim.areSame(c.representative, finding));
-      if (hit) hit.sources.add(source);
-      else clusters.push({ representative: finding, sources: new Set([source]) });
-    }
+    const member = labels.length;    // one member index per source
+    labels.push(source);
+    for (const finding of findings) members.push({ finding, member });
   }
-  return clusters.filter((c) => c.sources.size >= minSources);
+  const { clusters } = clusterFindingsSemantically(members, cache, threshold);
+  return clusters
+    .filter((c) => c.members.size >= minSources)
+    .map((c) => ({
+      rep: c.rep,
+      sources: new Set([...c.members].map((m) => labels[m]!)),
+      findings: [...c.findings],
+    }));
 }
 
-/** Recall proxy: fraction of pool clusters that `armFindings` match. 0 when the pool is empty. */
-export function poolCoverage(armFindings: readonly ReviewFinding[], pool: readonly PoolCluster[]): number {
+/**
+ * Recall proxy: fraction of pool clusters an arm's findings match, using the
+ * SAME pair judge (a cached pair score >= threshold, or finding identity). 0
+ * when the pool is empty. Requires the runner to have judged arm↔family pairs
+ * (Task 6 judges the family ∪ arm union), else an unjudged pair reads as no-match.
+ */
+export function poolCoverage(
+  armFindings: readonly ReviewFinding[],
+  pool: readonly PoolCluster[],
+  cache: FindingPairScoreCache,
+  threshold = TAU_PAIR,
+): number {
   if (pool.length === 0) return 0;
-  const covered = pool.filter((c) => armFindings.some((af) => sim.areSame(c.representative, af))).length;
+  const covered = pool.filter((c) =>
+    armFindings.some((af) =>
+      c.findings.some((cf) => cf.id === af.id || (cache.get(af, cf) ?? 0) >= threshold),
+    ),
+  ).length;
   return covered / pool.length;
 }
 ```
-> **Note:** `FindingSimilarity` exposes `areSame(a, b): boolean` (token-Jaccard + line overlap via `IssueMatcher`). If the real method name differs (check `src/evaluation/industrial/finding-similarity.ts`), adapt this one call and the tests; the rest is unaffected.
+> **Note:** clustering and coverage use the persisted **Nova pair-judge cache**
+> (`FindingPairScoreCache`, τ=0.7) — the exact instrument E1 uses
+> (`scripts/phase3-hetero-stats.ts`). Two implementer preconditions: (a) the
+> runner (Task 6) must judge every same-file cross-source finding pair over the
+> **family ∪ architecture-arm union**, so `poolCoverage` isn't a silent
+> cache-miss zero; (b) **finding ids must be globally unique** across (PR, arm,
+> run) — the runner namespaces them (Task 1/6) so `judge`/verdict lookups by id
+> never collide.
 
 - [ ] **Step 4: Run to verify it passes.** `node --test tests/unit/industrial-finding-pool.test.ts` — Expected: PASS (3 tests).
 
@@ -316,13 +432,23 @@ git commit -m "feat(e3): proxy precision (judge-genuine) + f1"
 - Create: `src/industrial/agreement-depth.ts`
 - Test: `tests/unit/industrial-agreement-depth.test.ts`
 
-Replicates E1 §4's depth table: cluster the **agentless family** findings (Haiku/Kimi/GLM), bucket each cluster by how many families hit it (1/2/3), and report the fraction judged genuine per depth — for cross-family clusters vs same-model self-recurrence (Haiku's 3 runs).
+> ⚠️ **Comparability override + PRIMARY analysis.** This depth table is the
+> **primary confirmatory E3 result** (external replication of E1 §4). It **must**
+> cluster with `clusterFindingsSemantically(members, pairCache, 0.7)` (the Nova
+> pair judge), NOT `buildPool` with `FindingSimilarity`. Reuse the exact
+> clustering path of `scripts/phase3-hetero-stats.ts` so the E3 and E1 depth
+> tables are the same measurement. `depth = cluster.members.size` (distinct
+> families). Report hetero (cross-family) vs homo (Haiku ×3 self-recurrence)
+> with honest wide CIs given ~30 PRs.
+
+Replicates E1 §4's depth table: cluster the **agentless family** findings (Haiku/Kimi/GLM) with the Nova semantic pair judge, bucket each cluster by how many families hit it (1/2/3), and report the fraction judged genuine per depth — for cross-family clusters vs same-model self-recurrence (Haiku's 3 runs).
 
 - [ ] **Step 1: Write the failing test.** Create `tests/unit/industrial-agreement-depth.test.ts`:
 ```ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { judgeGenuineByDepth } from "../../src/industrial/agreement-depth.ts";
+import { FindingPairScoreCache } from "../../src/benchmark/matching/finding-pair-judge.ts";
 import type { ReviewFinding } from "../../src/models/finding.ts";
 
 const f = (id: string, file: string, line: number, title: string): ReviewFinding => ({
@@ -331,17 +457,19 @@ const f = (id: string, file: string, line: number, title: string): ReviewFinding
 });
 
 test("buckets cross-family clusters by family-agreement depth and reports genuine rate", () => {
-  // One cluster hit by 2 families (haiku+kimi), one by 1 family (glm).
+  const a = f("a", "x.ts", 10, "null deref");   // haiku
+  const b = f("b", "x.ts", 10, "null deref");   // kimi — same issue as a (depth 2)
+  const c = f("c", "y.ts", 5, "typo");          // glm — lone (depth 1)
+  const cache = new FindingPairScoreCache();
+  cache.set(a, b, 0.9);                          // a≈b per the pair judge
   const familyFindings = new Map<string, ReviewFinding[]>([
-    ["haiku", [f("a", "x.ts", 10, "null deref")]],
-    ["kimi",  [f("b", "x.ts", 10, "null deref")]],
-    ["glm",   [f("c", "y.ts", 5, "typo")]],
+    ["haiku", [a]], ["kimi", [b]], ["glm", [c]],
   ]);
   const verdicts = { a: "valid", b: "valid", c: "invalid" } as const;
-  const table = judgeGenuineByDepth(familyFindings, verdicts);
+  const table = judgeGenuineByDepth(familyFindings, verdicts, cache);
   const d2 = table.find((r) => r.depth === 2)!;
   const d1 = table.find((r) => r.depth === 1)!;
-  assert.equal(d2.genuine, 1); assert.equal(d2.total, 1); // depth-2 cluster genuine
+  assert.equal(d2.genuine, 1); assert.equal(d2.total, 1); // depth-2 cluster genuine (rep a=valid)
   assert.equal(d1.genuine, 0); assert.equal(d1.total, 1); // depth-1 cluster not genuine
 });
 ```
@@ -351,27 +479,39 @@ test("buckets cross-family clusters by family-agreement depth and reports genuin
 - [ ] **Step 3: Implement.** Create `src/industrial/agreement-depth.ts`:
 ```ts
 // Cross-family corroboration-depth table (E1 §4 analog on real PRs). Cluster the
-// agentless family findings; a cluster's depth = number of distinct families that
-// hit it; genuine = the representative finding's judge verdict is `valid`.
+// findings with the Nova pair judge; a cluster's depth = number of distinct
+// sources (families, or runs for the homo baseline); genuine = the cluster
+// representative's judge verdict is `valid`. Same instrument as phase3-hetero-stats.
 import type { ReviewFinding } from "../models/finding.ts";
 import type { FindingVerdict } from "../evaluation/industrial/models.ts";
-import { buildPool } from "./finding-pool.ts";
+import {
+  clusterFindingsSemantically,
+  type FindingPairScoreCache,
+  type MemberFinding,
+} from "../benchmark/matching/finding-pair-judge.ts";
+import { TAU_PAIR } from "./finding-pool.ts";
 
 export interface DepthRow { depth: number; genuine: number; total: number }
 
 export function judgeGenuineByDepth(
-  familyFindings: ReadonlyMap<string, ReviewFinding[]>,
+  sourceFindings: ReadonlyMap<string, ReviewFinding[]>,
   verdicts: Readonly<Record<string, FindingVerdict>>,
+  cache: FindingPairScoreCache,
+  threshold = TAU_PAIR,
 ): DepthRow[] {
-  // minSources:1 keeps every cluster so we can bucket depth 1..N.
-  const clusters = buildPool(familyFindings, { minSources: 1 });
+  const members: MemberFinding[] = [];
+  let member = 0;
+  for (const [, findings] of sourceFindings) {
+    for (const finding of findings) members.push({ finding, member });
+    member += 1;                       // one member index per source (family or run)
+  }
+  const { clusters } = clusterFindingsSemantically(members, cache, threshold);
   const rows = new Map<number, DepthRow>();
   for (const c of clusters) {
-    const depth = c.sources.size;
-    const row = rows.get(depth) ?? { depth, genuine: 0, total: 0 };
+    const row = rows.get(c.members.size) ?? { depth: c.members.size, genuine: 0, total: 0 };
     row.total += 1;
-    if (verdicts[c.representative.id] === "valid") row.genuine += 1;
-    rows.set(depth, row);
+    if (verdicts[c.rep.id] === "valid") row.genuine += 1;
+    rows.set(c.members.size, row);
   }
   return [...rows.values()].sort((a, b) => a.depth - b.depth);
 }
@@ -393,7 +533,16 @@ git commit -m "feat(e3): cross-family judge-genuine-by-depth table"
 - Create: `scripts/phase3-industrial-stats.ts`
 - Test: `tests/unit/industrial-stats-report.test.ts` (drives a small helper `buildIndustrialReport`)
 
-Split the pure composition into a testable `buildIndustrialReport(runs, judge)` in `src/industrial/report.ts`; the script is a thin file-I/O wrapper. This keeps the analysis unit-tested and zero-LLM.
+Split the pure composition into a testable `buildIndustrialReport(runs, judge, pairCache)` in `src/industrial/report.ts`; the script is a thin file-I/O wrapper. This keeps the analysis unit-tested and zero-LLM.
+
+> ⚠️ **Comparability override (see Comparability Contract).** `buildIndustrialReport`
+> takes an additional **`pairCache: FindingPairScoreCache`** (loaded from
+> `pair-judge-cache.json`) and threads it into `buildPool`/`poolCoverage`/
+> `judgeGenuineByDepth` so all clustering is the Nova pair judge (τ_pair=0.7), not
+> Jaccard. **Leave-one-out excludes the Haiku family for ALL four arms** (fixed in
+> the snippet below), so every arm is scored against the same {Kimi, GLM} pool.
+> Set the report `meta` to mark the **depth table PRIMARY** and **per-arm/ladder
+> SECONDARY**.
 
 - [ ] **Step 1: Write the failing test.** Create `tests/unit/industrial-stats-report.test.ts`:
 ```ts
@@ -402,6 +551,7 @@ import assert from "node:assert/strict";
 import { buildIndustrialReport } from "../../src/industrial/report.ts";
 import type { IndustrialRun, JudgeCache } from "../../src/industrial/models.ts";
 import { judgeKey } from "../../src/industrial/models.ts";
+import { FindingPairScoreCache } from "../../src/benchmark/matching/finding-pair-judge.ts";
 import type { ReviewFinding } from "../../src/models/finding.ts";
 
 const f = (id: string, file: string, line: number, t: string): ReviewFinding => ({
@@ -414,13 +564,20 @@ const run = (over: Partial<IndustrialRun>): IndustrialRun => ({
 });
 
 test("buildIndustrialReport yields per-arm proxy metrics and a depth table", () => {
+  const fa = f("a", "x.ts", 10, "null deref"); // agentless arm + Haiku family
+  const fb = f("b", "x.ts", 10, "null deref"); // Kimi family — same issue as fa
   const runs: IndustrialRun[] = [
-    run({ axis: "architecture", arm: "agentless", findings: [f("a", "x.ts", 10, "null deref")] }),
-    run({ axis: "family", arm: "us.anthropic.claude-haiku-4-5-20251001-v1:0", findings: [f("a", "x.ts", 10, "null deref")] }),
-    run({ axis: "family", arm: "moonshotai.kimi-k2.5", findings: [f("b", "x.ts", 10, "null deref")] }),
+    run({ axis: "architecture", arm: "agentless", findings: [fa] }),
+    run({ axis: "family", arm: "us.anthropic.claude-haiku-4-5-20251001-v1:0", findings: [fa] }),
+    run({ axis: "family", arm: "moonshotai.kimi-k2.5", findings: [fb] }),
   ];
-  const judge: JudgeCache = { [judgeKey("a", "us.amazon.nova-pro-v1:0")]: "valid", [judgeKey("b", "us.amazon.nova-pro-v1:0")]: "valid" };
-  const report = buildIndustrialReport(runs, judge, { primaryJudge: "us.amazon.nova-pro-v1:0" });
+  const judge: JudgeCache = {
+    [judgeKey("a", "us.amazon.nova-pro-v1:0")]: "valid",
+    [judgeKey("b", "us.amazon.nova-pro-v1:0")]: "valid",
+  };
+  const pairCache = new FindingPairScoreCache();
+  pairCache.set(fa, fb, 0.9);                       // Haiku≈Kimi → a depth-2 cross-family cluster
+  const report = buildIndustrialReport(runs, judge, pairCache, { primaryJudge: "us.amazon.nova-pro-v1:0" });
   const agentless = report.perArm.find((a) => a.arm === "agentless")!;
   assert.equal(agentless.precision, 1);            // its one finding judged valid
   assert.ok(report.depth.hetero.length >= 1);       // a cross-family depth table exists
@@ -439,6 +596,7 @@ import { buildPool, poolCoverage } from "./finding-pool.ts";
 import { proxyPrecision, proxyF1 } from "./proxy-metrics.ts";
 import { judgeGenuineByDepth, type DepthRow } from "./agreement-depth.ts";
 import { wilcoxonSignedRank, cliffsDelta, bootstrapPairedCI, mean, median } from "../analysis/stats.ts";
+import type { FindingPairScoreCache } from "../benchmark/matching/finding-pair-judge.ts";
 import type { ReviewFinding } from "../models/finding.ts";
 
 interface Options { primaryJudge?: string }
@@ -452,7 +610,7 @@ const verdictsFor = (judge: JudgeCache, model: string): Record<string, "valid" |
 // union of a run-group's findings deduped is handled by buildPool clustering; here we just concat.
 const concat = (runs: IndustrialRun[]): ReviewFinding[] => runs.flatMap((r) => r.findings);
 
-export function buildIndustrialReport(runs: IndustrialRun[], judge: JudgeCache, opts: Options = {}): IndustrialReport {
+export function buildIndustrialReport(runs: IndustrialRun[], judge: JudgeCache, pairCache: FindingPairScoreCache, opts: Options = {}): IndustrialReport {
   const primaryJudge = opts.primaryJudge ?? "us.amazon.nova-pro-v1:0";
   const verdicts = verdictsFor(judge, primaryJudge);
   const prs = [...new Set(runs.map((r) => r.pr))].sort();
@@ -470,25 +628,25 @@ export function buildIndustrialReport(runs: IndustrialRun[], judge: JudgeCache, 
     for (const pr of prs) {
       const armFindings = concat(runs.filter((r) => r.pr === pr && r.axis === "architecture" && r.arm === arm));
       if (armFindings.length === 0 && armFinderMissing(runs, pr, arm)) continue;
-      // leave-one-out: exclude Haiku family when scoring agentless (same model as the SUT agentless)
-      const exclude = arm === "agentless" ? "us.anthropic.claude-haiku-4-5-20251001-v1:0" : undefined;
-      const pool = buildPool(familyRunsByPr(pr), { minSources: 2, excludeSource: exclude });
+      // leave-one-out: exclude the Haiku family for ALL Haiku arms (Comparability Contract) → every arm scored vs the same {Kimi,GLM} pool
+      const exclude = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
+      const pool = buildPool(familyRunsByPr(pr), pairCache, { minSources: 2, excludeSource: exclude });
       const p = proxyPrecision(armFindings, verdicts);
-      const r = poolCoverage(armFindings, pool);
+      const r = poolCoverage(armFindings, pool, pairCache);
       precs.push(p); recalls.push(r); f1s.push(proxyF1(p, r));
     }
     return { arm, n: precs.length, precision: round(mean(precs)), recall: round(mean(recalls)), f1: round(mean(f1s)) };
   });
 
   // paired ladder contrasts on proxy-f1 (agentless vs generalists-3, generalists-3 vs hierarchical, hierarchical vs consensus)
-  const ladder = pairedLadder(runs, verdicts, prs, familyRunsByPr);
+  const ladder = pairedLadder(runs, verdicts, prs, familyRunsByPr, pairCache);
 
   // cross-family depth table (aggregate across PRs): hetero = all-family clusters; homo = Haiku self-recurrence across runs
-  const hetero = aggregateDepth(prs.map((pr) => judgeGenuineByDepth(familyRunsByPr(pr), verdicts)));
+  const hetero = aggregateDepth(prs.map((pr) => judgeGenuineByDepth(familyRunsByPr(pr), verdicts, pairCache)));
   const homo = aggregateDepth(prs.map((pr) => {
     const haikuRuns = runs.filter((r) => r.pr === pr && r.axis === "family" && r.arm === FAMILY_ARMS[0]);
     const byRun = new Map<string, ReviewFinding[]>(haikuRuns.map((r) => [`run${r.runIndex}`, r.findings]));
-    return judgeGenuineByDepth(byRun, verdicts); // depth here = # of Haiku runs agreeing
+    return judgeGenuineByDepth(byRun, verdicts, pairCache); // depth here = # of Haiku runs agreeing
   }));
 
   const judges = [...new Set(Object.keys(judge).map((k) => k.split("::")[1]!))];
@@ -501,7 +659,7 @@ export function buildIndustrialReport(runs: IndustrialRun[], judge: JudgeCache, 
   });
 
   return {
-    meta: { prs, runsPerArm: maxRunIndex(runs) + 1, families: [...FAMILY_ARMS], judges, note: "Proxy metrics — no human ground truth. Precision=judge-genuine, recall=leave-one-out pool coverage." },
+    meta: { prs, runsPerArm: maxRunIndex(runs) + 1, families: [...FAMILY_ARMS], judges, primary: "depth", secondary: "perArm+ladder", note: "Proxy metrics — no human ground truth. PRIMARY=cross-family judge-genuine-by-depth (E1 §4 replication). SECONDARY (proxy, wide CI on ~30 PRs)=per-arm P/R/F1 + ladder; precision=judge-genuine, recall=leave-one-out family-pool coverage." },
     perArm, ladder, depth: { hetero, homo }, triangulation: { staticByDepth: [], laterFixByDepth: [] }, judgeKappa, cost,
   };
 }
@@ -517,12 +675,12 @@ function aggregateDepth(perPr: DepthRow[][]): Array<{ depth: number; genuine: nu
   }
   return [...acc.values()].sort((x, y) => x.depth - y.depth);
 }
-function pairedLadder(runs: IndustrialRun[], verdicts: Record<string, "valid" | "invalid" | "uncertain">, prs: string[], familyRunsByPr: (pr: string) => Map<string, ReviewFinding[]>) {
+function pairedLadder(runs: IndustrialRun[], verdicts: Record<string, "valid" | "invalid" | "uncertain">, prs: string[], familyRunsByPr: (pr: string) => Map<string, ReviewFinding[]>, pairCache: FindingPairScoreCache) {
   const f1ByArmPr = (arm: ArchitectureArm, pr: string): number => {
     const armF = runs.filter((r) => r.pr === pr && r.axis === "architecture" && r.arm === arm).flatMap((r) => r.findings);
-    const exclude = arm === "agentless" ? "us.anthropic.claude-haiku-4-5-20251001-v1:0" : undefined;
-    const pool = buildPool(familyRunsByPr(pr), { minSources: 2, excludeSource: exclude });
-    return proxyF1(proxyPrecision(armF, verdicts), poolCoverage(armF, pool));
+    const exclude = "us.anthropic.claude-haiku-4-5-20251001-v1:0"; // LOO: exclude Haiku family for all arms (Comparability Contract)
+    const pool = buildPool(familyRunsByPr(pr), pairCache, { minSources: 2, excludeSource: exclude });
+    return proxyF1(proxyPrecision(armF, verdicts), poolCoverage(armF, pool, pairCache));
   };
   const pairs: Array<[ArchitectureArm, ArchitectureArm]> = [["agentless", "generalists-3"], ["generalists-3", "hierarchical"], ["hierarchical", "consensus"]];
   return pairs.map(([x, y]) => {
@@ -558,13 +716,17 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import type { IndustrialRun, JudgeCache } from "../src/industrial/models.ts";
 import { buildIndustrialReport } from "../src/industrial/report.ts";
+import { FindingPairScoreCache } from "../src/benchmark/matching/finding-pair-judge.ts";
 
 const DIR = resolve(process.env.RAP_PORTAL_DIR ?? join(import.meta.dirname, "..", "rap-portal-results"));
 const runs = JSON.parse(readFileSync(join(DIR, "runs.json"), "utf8")) as IndustrialRun[];
 const judge = JSON.parse(readFileSync(join(DIR, "judge-cache.json"), "utf8")) as JudgeCache;
+const pairCache = FindingPairScoreCache.fromJSON(
+  JSON.parse(readFileSync(join(DIR, "pair-judge-cache.json"), "utf8")) as Record<string, number>,
+);
 
 // optional triangulation inputs are merged in Task 7; absent here → empty arrays
-const report = buildIndustrialReport(runs, judge);
+const report = buildIndustrialReport(runs, judge, pairCache);
 const out = join(import.meta.dirname, "..", "apps", "research-workbench", "rap-portal-report.json");
 writeFileSync(out, JSON.stringify(report, null, 2));
 console.log(`wrote ${out}`);
@@ -586,6 +748,19 @@ git commit -m "feat(e3): report composition + zero-LLM stats script"
 - Modify: `package.json`
 
 Impure (Bedrock + `gh`) — no unit test; acceptance is the Task 9 2-PR smoke. Reuses the exact flow from `scripts/rap-portal-smoke.ts` (fetch → `importManualDiff` → `runExperiment` → `getExperimentResult`), extended to: register `generalists-3`; run the 4 architectures under Haiku AND agentless under each family model id (via `modelVersion`); judge every finding with each judge model; persist `runs.json` + `judge-cache.json`; resume per PR.
+
+> ⚠️ **Comparability override (see Comparability Contract).** The runner must ALSO
+> build and persist the **Nova finding↔finding pair-judge cache**
+> (`pair-judge-cache.json`) over cross-family and cross-run finding pairs — reuse
+> `buildFindingPairPrompt` / `FindingPairScoreCache` / `listCandidatePairs` from
+> `src/benchmark/matching/finding-pair-judge.ts` and the `hetero:recluster`
+> pattern. The pool and depth clustering (Tasks 2/4/5) **depend on this cache**;
+> without it E3 falls back to Jaccard and is non-comparable. Also: the
+> **genuine-judge prompt must be E1's completeness prompt**
+> (`scripts/phase3-fp-completeness.ts` — "is this a genuine problem, given the
+> diff?"), not an ad-hoc prompt, so proxy-precision is measured with E1's
+> instrument. Persist `pair-judge-cache.json` alongside `runs.json` +
+> `judge-cache.json` for zero-LLM replay.
 
 - [ ] **Step 1: Implement.** Create `scripts/rap-portal-campaign.ts`:
 ```ts
@@ -794,23 +969,24 @@ function mineLaterChanges(pr: string, repo: string): ChangedRange[] {
 }
 ```
 
-- [ ] **Step 2: Merge triangulation into the report.** In `src/industrial/report.ts`, extend `buildIndustrialReport(runs, judge, opts)` to accept optional `opts.staticByPr` and `opts.laterFixByPr`, and populate `triangulation.staticByDepth` / `laterFixByDepth` by treating "static flags this cluster" and "a later change overlaps this cluster" as extra depth-bucketed genuine signals (reuse `judgeGenuineByDepth`'s bucketing; substitute the static/later-fix boolean for the judge verdict). Show the full code:
+- [ ] **Step 2: Merge triangulation into the report.** In `src/industrial/report.ts`, extend `buildIndustrialReport(runs, judge, pairCache, opts)` to accept optional `opts.staticByPr` and `opts.laterFixByPr`, and populate `triangulation.staticByDepth` / `laterFixByDepth` by treating "static flags this cluster" and "a later change overlaps this cluster" as extra depth-bucketed genuine signals (reuse `judgeGenuineByDepth`'s bucketing; substitute the static/later-fix boolean for the judge verdict). Show the full code:
 ```ts
 // add to Options:
 interface Options { primaryJudge?: string; staticByPr?: Record<string, import("../evaluation/industrial/models.ts").StaticAnalysisFinding[]>; laterFixByPr?: Record<string, import("../evaluation/industrial/models.ts").ChangedRange[]> }
 // after computing hetero/homo, add (only when inputs present):
-const staticByDepth = opts.staticByPr ? aggregateDepth(prs.map((pr) => corroborationDepth(familyRunsByPr(pr), (fnd) => staticHit(fnd, opts.staticByPr![pr] ?? [])))) : [];
-const laterFixByDepth = opts.laterFixByPr ? aggregateDepth(prs.map((pr) => corroborationDepth(familyRunsByPr(pr), (fnd) => rangeHit(fnd, opts.laterFixByPr![pr] ?? [])))) : [];
+const staticByDepth = opts.staticByPr ? aggregateDepth(prs.map((pr) => corroborationDepth(familyRunsByPr(pr), pairCache, (fnd) => staticHit(fnd, opts.staticByPr![pr] ?? [])))) : [];
+const laterFixByDepth = opts.laterFixByPr ? aggregateDepth(prs.map((pr) => corroborationDepth(familyRunsByPr(pr), pairCache, (fnd) => rangeHit(fnd, opts.laterFixByPr![pr] ?? [])))) : [];
 // ...set triangulation: { staticByDepth, laterFixByDepth }
 ```
 and add helpers to `report.ts`:
 ```ts
 import type { StaticAnalysisFinding, ChangedRange } from "../evaluation/industrial/models.ts";
+import type { FindingPairScoreCache } from "../benchmark/matching/finding-pair-judge.ts";
 import { buildPool } from "./finding-pool.ts";
-function corroborationDepth(familyFindings: ReadonlyMap<string, ReviewFinding[]>, hit: (f: ReviewFinding) => boolean) {
-  const clusters = buildPool(familyFindings, { minSources: 1 });
+function corroborationDepth(familyFindings: ReadonlyMap<string, ReviewFinding[]>, cache: FindingPairScoreCache, hit: (f: ReviewFinding) => boolean) {
+  const clusters = buildPool(familyFindings, cache, { minSources: 1 });
   const rows = new Map<number, { depth: number; genuine: number; total: number }>();
-  for (const c of clusters) { const d = c.sources.size; const r = rows.get(d) ?? { depth: d, genuine: 0, total: 0 }; r.total++; if (hit(c.representative)) r.genuine++; rows.set(d, r); }
+  for (const c of clusters) { const d = c.sources.size; const r = rows.get(d) ?? { depth: d, genuine: 0, total: 0 }; r.total++; if (hit(c.rep)) r.genuine++; rows.set(d, r); }
   return [...rows.values()].sort((a, b) => a.depth - b.depth);
 }
 const staticHit = (f: ReviewFinding, sa: StaticAnalysisFinding[]): boolean => sa.some((s) => s.file === f.file && Math.abs(s.line - f.line) <= 10);
@@ -819,7 +995,7 @@ const rangeHit = (f: ReviewFinding, cr: ChangedRange[]): boolean => cr.some((c) 
 
 - [ ] **Step 3: Extend the test.** Add a case to `tests/unit/industrial-stats-report.test.ts` passing `staticByPr` and asserting `report.triangulation.staticByDepth.length >= 1`. Run: `node --test tests/unit/industrial-stats-report.test.ts` — Expected: PASS.
 
-- [ ] **Step 4: Wire the script inputs.** In `scripts/phase3-industrial-stats.ts`, load `static.json`/`laterfix.json` if present and pass to `buildIndustrialReport(runs, judge, { staticByPr, laterFixByPr })`.
+- [ ] **Step 4: Wire the script inputs.** In `scripts/phase3-industrial-stats.ts`, load `static.json`/`laterfix.json` if present and pass to `buildIndustrialReport(runs, judge, pairCache, { staticByPr, laterFixByPr })`.
 
 - [ ] **Step 5: Commit.**
 ```bash
@@ -948,5 +1124,5 @@ Commit the refreshed `apps/research-workbench/rap-portal-report.json`.
 - **Spec coverage:** §2 hypotheses → Tasks 3/5 (proxy P/R/F1 + ladder) & Task 4 (depth); §3 arms/sample → Task 6 (4 arch + families, PR selection, 3 runs); §4 metrics/pool → Tasks 2/3 (leave-one-out pool, judge precision) & Task 8 (cost row); §5 analysis → Task 5 (paired stats, κ) + Task 7 (triangulation); §6 components → Tasks 5/6/7/8 (runner+stats+dashboard, reuse of `industrial/*`, PR-import, stats); §7 threats → surfaced in dashboard note + docs (Task 9); §8 testing → Tasks 1–5, 9.
 - **No placeholders:** every code step is complete; the only deferred detail (whole-file later-fix range) is a documented coarse default, not a TODO.
 - **Type consistency:** `IndustrialRun`/`JudgeCache`/`judgeKey`/`ARCHITECTURE_ARMS`/`FAMILY_ARMS` defined in Task 1 and used verbatim in Tasks 5/6/7/8; `buildPool`/`poolCoverage` (Task 2) and `proxyPrecision`/`proxyF1` (Task 3) consumed by `report.ts` (Task 5); `IndustrialReport` (Task 1) rendered in Task 8.
-- **Adaptation flags (real-API confirmations the implementer must make):** `FindingSimilarity.areSame` method name (Task 2); `provider.review()` raw-text field + `runExperiment({modelVersion})` model routing (Task 6). Each is isolated to one call site with a note.
+- **Adaptation flags (real-API confirmations the implementer must make):** the Nova pair-judge clustering API (`clusterFindingsSemantically` + `FindingPairScoreCache` from `finding-pair-judge.ts`, per the Comparability Contract — this supersedes the illustrative `FindingSimilarity.areSame` snippet in Tasks 2/4); `provider.review()` raw-text field + `runExperiment({modelVersion})` model routing (Task 6). Each is isolated to one call site with a note.
 - **Impure boundary:** Tasks 6/7 aren't unit-tested (live Bedrock/gh/git); acceptance is the Task 9 smoke — deliberate, matches the repo's runner/stats split.
