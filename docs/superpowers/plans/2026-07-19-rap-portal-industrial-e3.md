@@ -747,7 +747,7 @@ git commit -m "feat(e3): report composition + zero-LLM stats script"
 - Create: `scripts/rap-portal-campaign.ts`
 - Modify: `package.json`
 
-Impure (Bedrock + `gh`) — no unit test; acceptance is the Task 9 2-PR smoke. Reuses the exact flow from `scripts/rap-portal-smoke.ts` (fetch → `importManualDiff` → `runExperiment` → `getExperimentResult`), extended to: register `generalists-3`; run the 4 architectures under Haiku AND agentless under each family model id (via `modelVersion`); judge every finding with each judge model; persist `runs.json` + `judge-cache.json`; resume per PR.
+Impure (Bedrock + `gh`) — no unit test; acceptance is the Task 9 2-PR smoke. Reuses the exact flow from `scripts/rap-portal-smoke.ts` (fetch → `importManualDiff` → `runExperiment` → `getExperimentResult`), extended to: register `generalists-3`; run the 4 architectures under Haiku AND agentless under each family model id (via `modelVersion`); judge every finding with each judge model; persist `runs.json` + `judge-cache.json` and **auto-upload the results dir to S3 after each PR** (best-effort; disable with `RAP_PORTAL_NO_UPLOAD=1`); resume per PR.
 
 > ⚠️ **Comparability override (see Comparability Contract).** The runner must ALSO
 > build and persist the **Nova finding↔finding pair-judge cache**
@@ -770,9 +770,12 @@ Impure (Bedrock + `gh`) — no unit test; acceptance is the Task 9 2-PR smoke. R
  * finding (Nova + DeepSeek), and PERSISTS runs + judge cache for zero-LLM replay.
  *
  * Preconditions: `gh auth status` (read access to logisticPM/portal), `aws sso login`
- * + Bedrock access to all reviewer + judge models. Run: `npm run rap-portal:run`
+ * + Bedrock access to all reviewer + judge models, and s3:PutObject on the research
+ * bucket (for the per-PR auto-upload). Run: `npm run rap-portal:run`
  * Env: RAP_PRS=12,13,14 (explicit) or RAP_PR_LIMIT=30 (auto-pick merged PRs);
- *      RUNS_PER_ARM=3; RAP_PORTAL_DIR=rap-portal-results
+ *      RUNS_PER_ARM=3; RAP_PORTAL_DIR=rap-portal-results;
+ *      RAP_PORTAL_S3=s3://…/confirmatory/rap-portal/ (auto-upload dest; set empty
+ *      or RAP_PORTAL_NO_UPLOAD=1 to disable)
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
@@ -798,6 +801,20 @@ const REPO = process.env.RAP_REPO ?? "logisticPM/portal";
 const RUNS = Math.max(1, Number(process.env.RUNS_PER_ARM ?? 3));
 const DIR = resolve(process.env.RAP_PORTAL_DIR ?? "rap-portal-results");
 mkdirSync(DIR, { recursive: true });
+
+// --- S3 auto-upload (best-effort; local disk stays the source of truth) ---
+const S3_DEST = process.env.RAP_PORTAL_S3 ?? "s3://rap-review-research-data-106189426706/confirmatory/rap-portal/";
+const S3_UPLOAD = S3_DEST !== "" && process.env.RAP_PORTAL_NO_UPLOAD !== "1";
+function uploadToS3(): void {
+  if (!S3_UPLOAD) return;
+  try {
+    // sync mirrors the whole results dir → runs/judge/pair-judge/static/laterfix .json
+    execFileSync("aws", ["s3", "sync", DIR, S3_DEST, "--only-show-errors"], { stdio: "inherit" });
+    console.log(`  ↑ synced ${DIR} → ${S3_DEST}`);
+  } catch (e) {
+    console.warn(`  ⚠ S3 upload failed (local copy kept, run stays resumable): ${String(e)}`);
+  }
+}
 
 const gh = (args: string[]): string => execFileSync("gh", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 function selectPRs(): string[] {
@@ -882,9 +899,11 @@ for (const pr of selectPRs()) {
   runs.push(...prRuns);
   writeFileSync(RUNS_PATH, JSON.stringify(runs, null, 2));      // persist after each PR (resume-safe)
   writeFileSync(JUDGE_PATH, JSON.stringify(judgeCache, null, 2));
+  uploadToS3();                                                 // auto-backup the whole DIR to S3 after each PR
   console.log(`  persisted ${prRuns.length} runs; ${Object.keys(judgeCache).length} judge verdicts total`);
 }
-console.log(`done — ${runs.length} runs over ${new Set(runs.map((r) => r.pr)).size} PRs → ${DIR}`);
+uploadToS3();  // final flush (captures pair-judge-cache.json / static.json / laterfix.json too, if present)
+console.log(`done — ${runs.length} runs over ${new Set(runs.map((r) => r.pr)).size} PRs → ${DIR}${S3_UPLOAD ? ` (mirrored to ${S3_DEST})` : ""}`);
 ```
 > **Adaptation note:** confirm `provider.review()`'s response field for raw text (`rawText` vs `content`) in `src/llm/models/llm-review-response.ts`, and that `runExperiment` accepts `modelVersion` as the Bedrock model id. Adapt those two call sites if the real names differ; report any change.
 
@@ -1097,7 +1116,7 @@ Expected: `rap-portal-results/runs.json` + `judge-cache.json` written; `apps/res
 
 - [ ] **Step 3: Sanity-check the numbers.** Confirm: 4 architecture arms present; family arms Haiku/Kimi/GLM present; `perArm` precision ∈ [0,1]; a non-empty cross-family depth table; cost row shows non-zero llmCalls (1/3/3/9 pattern for the four arms).
 
-- [ ] **Step 4: Persist artifacts to S3 + update docs.**
+- [ ] **Step 4: Confirm S3 + update docs.** The runner already auto-uploads after each PR, so this is only a final verification/flush (a no-op if nothing changed):
 ```bash
 aws s3 sync rap-portal-results/ s3://rap-review-research-data-106189426706/confirmatory/rap-portal/
 ```
@@ -1114,7 +1133,7 @@ git commit -m "feat(e3): 2-PR smoke passing; wire E3 report to dashboard; docs"
 RAP_PR_LIMIT=30 RUNS_PER_ARM=3 npm run rap-portal:run   # paid Bedrock; resumable
 RAP_PORTAL_REPO_PATH=/path/to/portal npm run rap-portal:static
 npm run rap-portal:stats
-aws s3 sync rap-portal-results/ s3://rap-review-research-data-106189426706/confirmatory/rap-portal/
+aws s3 sync rap-portal-results/ s3://rap-review-research-data-106189426706/confirmatory/rap-portal/   # final flush: pushes static.json/laterfix.json produced AFTER the (already auto-uploaded) campaign
 ```
 Commit the refreshed `apps/research-workbench/rap-portal-report.json`.
 
