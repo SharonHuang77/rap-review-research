@@ -32,6 +32,7 @@ import {
   renderPrDetail,
   notReady,
 } from "./confirmatory.ts";
+import { loadIndustrial, renderIndustrial, industrialNotReady } from "./industrial.ts";
 
 const PORT = Number(process.env.PORT ?? 4317);
 
@@ -79,6 +80,11 @@ const server = createServer(async (req, res) => {
     if (path === "/pr") {
       const id = q.get("id") ?? "";
       return send(res, 200, guard(`PR ${id}`, (d) => renderPrDetail(d, id)));
+    }
+
+    if (path === "/industrial") {
+      const ind = loadIndustrial();
+      return send(res, 200, layout("Industrial (E3)", ind ? renderIndustrial(ind) : industrialNotReady()));
     }
 
     // ---- Demo sample workbench (the original RFC-11 demo) --------------------

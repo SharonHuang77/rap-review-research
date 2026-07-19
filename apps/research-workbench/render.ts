@@ -90,6 +90,7 @@ export function layout(title: string, bodyHtml: string): string {
   ${link("/contrasts", "Contrasts")}
   ${link("/benchmarks", "SWE-PRBench")}
   ${link("/cross-family", "Cross-family")}
+  ${link("/industrial", "Industrial (E3)")}
   ${link("/prs", "Browse PRs")}
   <span class="sep">|</span>
   ${link("/experiments", "Demo")}
