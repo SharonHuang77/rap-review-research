@@ -35,3 +35,19 @@ test("buildIndustrialReport yields per-arm proxy metrics and a depth table", () 
   assert.ok(report.depth.hetero.length >= 1);       // a cross-family depth table exists
   assert.equal(report.meta.prs.length, 1);
 });
+
+test("buildIndustrialReport buckets static triangulation by depth when provided", () => {
+  const fa = f("a", "x.ts", 10, "null deref");
+  const fb = f("b", "x.ts", 10, "null deref");
+  const runs: IndustrialRun[] = [
+    run({ axis: "family", arm: "us.anthropic.claude-haiku-4-5-20251001-v1:0", findings: [fa] }),
+    run({ axis: "family", arm: "moonshotai.kimi-k2.5", findings: [fb] }),
+  ];
+  const judge: JudgeCache = {};
+  const pairCache = new FindingPairScoreCache();
+  pairCache.set(fa, fb, 0.9);
+  const report = buildIndustrialReport(runs, judge, pairCache, {
+    staticByPr: { "1": [{ file: "x.ts", line: 10, rule: "TS2345", category: "type" }] },
+  });
+  assert.ok(report.triangulation.staticByDepth.length >= 1);
+});
