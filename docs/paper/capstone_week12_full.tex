@@ -750,7 +750,10 @@ sampling budget fixed and review a byte-identical immutable snapshot per PR
 across all four architectures, so topology is the only manipulated variable;
 the compute-matched Generalists-3 control further separates communication
 structure from raw sampling. The deterministic evaluation engine and stored
-reproducibility metadata let us regenerate every metric from saved results.
+reproducibility metadata let us regenerate every metric from the archived run
+and judge caches without new model calls; those caches ($\sim$94\,MB) are held
+in access-controlled storage and released via the OSF data component at
+publication, rather than committed to the source tree.
 
 \textbf{External validity.} Qodo is a synthetic-injection benchmark:
 defects are planted (rule violations and functional bugs) into real merged

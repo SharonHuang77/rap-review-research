@@ -2,9 +2,12 @@
 
 **Status:** Confirmatory campaign complete over both benchmark datasets
 (Qodo + SWE-PRBench) + the pre-registered cross-family companion. The
-industrial-portal arm is deferred. All numbers below **replay
-deterministically from persisted artifacts with zero LLM calls** — every raw
-run and judge score is cached.
+industrial-portal arm is deferred. Every raw run and judge score is cached, so
+all numbers below **replay deterministically with zero LLM calls** — once the
+archived caches are pulled from private storage (see **Reproducibility data**
+below). The report artifacts referenced in the provenance table live in the
+gitignored `phase2-results/` and `hetero-confirmatory/` working dirs, not in
+git; the archive is the authoritative source.
 
 **Analysis framework (registered, §5.2 + doc 10 amendment):** PR is the unit;
 each (PR, arm) value is the mean of 3 runs; contrasts use paired Wilcoxon
@@ -26,6 +29,33 @@ finding→GT judge at τ=0.7.
 | Judge cross-agreement | `scripts/judge-cross-agreement.ts` | (stdout) |
 | Borrowed metrics (FDR/Cost-per-TP/MV/overlap) | `scripts/phase3-borrowed-metrics.ts` | (stdout) |
 | New paired-stats primitives | `src/analysis/stats.ts` | `tests/unit/analysis-rate-gap.test.ts` |
+
+## Reproducibility data (archived run + judge caches)
+
+The full confirmatory run data and judge caches (~94 MB, 28 objects) are
+archived in a **private, access-blocked S3 bucket** (not committed to this
+public repo, to respect the OSF embargo until publication):
+
+```
+s3://rap-review-research-data-106189426706/confirmatory/
+  phase2-results/        qodo/swe -all-runs.json + -all-cache.json + phase3-*-report.json
+  hetero-confirmatory/   hetero + pair-judge caches, companion runs, fp-completeness/*, reports
+```
+
+To replay from saved results (zero LLM calls), pull the archive into the
+matching working dirs, then run the scripts in the provenance table:
+
+```bash
+aws s3 sync s3://rap-review-research-data-106189426706/confirmatory/phase2-results/ phase2-results/
+aws s3 sync s3://rap-review-research-data-106189426706/confirmatory/hetero-confirmatory/ hetero-confirmatory/
+node scripts/phase3-stats.ts        # per-arm P/R/F1, H2, ladder, H-verify
+node scripts/phase3-hetero-stats.ts # H-hetero-precision (reads DATA_IN=hetero-confirmatory)
+```
+
+Access is on request (team + reviewers); at publication the archive is released
+via the OSF data component. Only if the archive is lost would regeneration
+require re-running the paid Bedrock campaign (~1,788 Qodo + 600 SWE reviews +
+companion + judge passes).
 
 ---
 
