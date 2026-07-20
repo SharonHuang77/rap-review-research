@@ -35,22 +35,26 @@ Large Language Models are increasingly used for automated code review, and
 multi-agent frameworks propose dividing the work among specialized agents. It
 remains unclear whether the \emph{communication topology} among agents---rather
 than their mere presence, or the extra compute they consume---improves review
-quality. We compare four architectures under identical conditions: an Agentless
-single-LLM baseline, a compute-matched Generalists-3 control that separates
-``more compute'' from ``specialization,'' a Hierarchical manager-plus-specialists
-design, and a Decentralized Peer Consensus design. Model, prompts, roles, and the
-PR snapshot are held fixed so that topology is the only independent variable, and
-the hypotheses and analysis plan were pre-registered. We report 1{,}188 reviews
-over 99 injected-defect PRs, 600 over 50 human-reviewed PRs, and 627 over 30 PRs
-from a live industrial portal. Topology adds no capability: specialization is
-null ($p{=}0.73$), no multi-agent arm approaches the single-pass baseline on F1
-(0.36--0.38 vs.\ 0.49, Holm $p{<}0.001$), and extra agents buy recall at
-3--9$\times$ the cost. Value appears instead on a \emph{verification} axis:
-findings three independent model families agree on are genuine 89\% of the time
-versus 54\% for one model repeating itself (judge-invariant,
-$\kappa{=}0.95$). On real unlabeled code this instrument fails---LLM genuineness
-judges disagree at $\kappa{=}0.03$. Diversity pays on the verification axis, not
-the generation axis.
+quality. We compare a four-rung experimental \emph{ladder} that incrementally
+introduces additional sampling, role specialization, and peer communication---an
+Agentless single-LLM baseline, a compute-matched Generalists-3 control that
+separates ``more compute'' from ``specialization,'' a Hierarchical
+manager-plus-specialists design, and a Decentralized Peer Consensus
+design---while holding the model, PR snapshot, prompt templates, and evaluation
+pipeline fixed. Hypotheses and the analysis plan were pre-registered. We report
+1{,}188 reviews over 99 injected-defect PRs, 600 over 50 human-reviewed PRs, and
+627 over 30 PRs from a live industrial portal. Role specialization produced no
+improvement over compute-matched generalist sampling ($p{=}0.73$), and Agentless
+achieved the highest F1 among the tested arms (0.49 vs.\ 0.36--0.38, Holm
+$p{<}0.001$); multi-agent workflows raised recall but required 3--9$\times$ the
+per-run call budget. Separately, findings produced by three independent model
+families matched injected ground truth 89\% of the time versus 54\% for findings
+recurring across three runs of one model (reproduced under a second pair judge,
+$\kappa{=}0.95$). On an unlabeled industrial repository this relationship could
+not be validated: independent genuineness judges disagreed almost completely
+($\kappa{=}0.03$). These results locate the clearest value of diversity in
+cross-family verification rather than homogeneous multi-agent generation, while
+showing that such verification requires a reliable correctness oracle.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -70,9 +74,10 @@ organized. A centralized manager may be cheaper; peer discussion may catch more
 cross-component issues; or the structure may add cost without accuracy. We ask:
 
 \begin{quote}
-\textbf{RQ:} Holding model, prompts, and roles fixed, does the
-\emph{communication topology} of a multi-agent system change the effectiveness
-and efficiency of automated code review?
+\textbf{RQ:} Holding the underlying model, review target, and evaluation
+procedure fixed, what incremental effects do additional sampling, role
+specialization, and inter-agent communication have on the effectiveness and
+efficiency of automated code review?
 \end{quote}
 
 Answering this needs a control most studies omit. If a three-specialist team beats
@@ -87,15 +92,17 @@ on three complementary datasets---injected-defect ground truth, human-reviewer
 agreement, and a live industrial repository---and pre-registered the hypotheses,
 sample sizes, and analysis before collection. Our contributions are:
 \begin{itemize}
-  \item A pre-registered, compute-matched comparison in which communication
-  topology is the only independent variable, over 2{,}415 reviews.
-  \item Evidence that \emph{homogeneous} topology adds no capability: the
-  single-pass baseline is F1-unbeatable and specialization is null.
+  \item A pre-registered experimental ladder separating additional sampling,
+  role specialization, and peer communication through adjacent contrasts, over
+  2{,}415 reviews.
+  \item Evidence that the tested homogeneous multi-agent workflows provide no F1
+  improvement over the single-pass baseline, and that specialization adds nothing
+  over compute-matched sampling.
   \item Identification of a \emph{cross-model verification} axis where
-  multi-agent value does live---agreement between independent model families is
-  a judge-invariant precision instrument.
-  \item An external-validity boundary: on real unlabeled code that instrument
-  fails, because LLM correctness judges become unreliable
+  multi-agent value does live---agreement between independent model families
+  predicts golden-set matching far better than repeated sampling of one model.
+  \item An external-validity boundary: on real unlabeled code that relationship
+  could not be validated, because LLM correctness judges are mutually unreliable
   ($\kappa{=}0.03$)---a caution for LLM-judged evaluation generally.
 \end{itemize}
 
@@ -134,15 +141,24 @@ code review~\cite{zietsman}.
 
 \subsection{The four-rung ladder}
 \label{sec:variables}
-The independent variable is communication topology (Fig.~\ref{fig:architectures}):
-(1)~\textbf{Agentless}---one LLM reviews the PR in a single pass;
-(2)~\textbf{Generalists-3}---the same generalist prompt sampled three times and
-merged, with no roles and no communication (the compute-matched control);
-(3)~\textbf{Hierarchical}---a manager assigns work to frontend, backend, and
-database specialists and deterministically synthesizes their findings;
+Each rung adds exactly one capability over its predecessor
+(Fig.~\ref{fig:architectures}): (1)~\textbf{Agentless}---one LLM reviews the PR
+in a single pass; (2)~\textbf{Generalists-3}---the same generalist prompt sampled
+three times and merged, with no roles and no communication (the compute-matched
+control that isolates sampling from specialization); (3)~\textbf{Hierarchical}---a
+\emph{deterministic} coordinator routes the diff to frontend, backend, and
+database specialists, whose findings a \emph{deterministic} synthesizer merges;
 (4)~\textbf{Consensus}---the same specialists review independently, then exchange
-findings and vote. Model (Claude Haiku 4.5), prompts, roles, sampling budget, and
-a byte-identical per-PR snapshot are held fixed; each (PR, arm) value is the mean
+findings and vote.
+
+Coordination and aggregation in the Hierarchical arm are deterministic code, not
+model calls, so its three LLM calls are exactly its three specialists; only
+Consensus adds inference stages (nine calls). The model (Claude Haiku 4.5),
+prompt templates, byte-identical per-PR snapshot, and evaluation pipeline are
+fixed across arms, but sampling budget, roles, and message flow vary by
+construction---that is what the ladder manipulates. Inference is therefore not
+constant across all four arms, so we read \emph{adjacent} contrasts rather than
+treating topology as a single isolated variable. Each (PR, arm) value is the mean
 of three runs.
 
 \begin{figure*}[t]
@@ -153,15 +169,18 @@ of three runs.
   % corroboration depth, judge-genuine proxy precision, and pool-coverage proxy
   % recall; static-analysis and later-fix were specified but not run.
   \includegraphics[width=\textwidth]{fig1_architectures_week11.png}
-  \caption{The four-rung ladder. Each rung adds exactly one thing---compute,
-  then specialization, then communication---while the PR snapshot, model,
-  prompts, roles, and evaluation pipeline are held constant, so communication
-  topology is the only independent variable. Agentless reviews in a single pass;
-  Generalists-3 samples the same generalist three times and merges
-  deterministically without communication (the compute-matched control);
-  Hierarchical routes through a coordinator (one-to-many); Consensus adds peer
-  discussion and voting (many-to-many). The per-run call and message counts
-  beneath each rung are the coordination overhead quantified in
+  \caption{The four-rung ladder. Each rung adds exactly one capability over its
+  predecessor---sampling, then specialization, then communication---while the PR
+  snapshot, model, prompt templates, and evaluation pipeline are held constant;
+  inference budget necessarily varies with the rung, so we read \emph{adjacent}
+  contrasts rather than treating topology as an isolated variable. Agentless
+  reviews in a single pass; Generalists-3 samples the same generalist three times
+  and merges deterministically without communication (the compute-matched
+  control); Hierarchical routes through a \emph{deterministic} coordinator
+  (one-to-many) and a \emph{deterministic} synthesizer, so its three LLM calls
+  are exactly its three specialists; Consensus adds peer discussion and voting
+  (many-to-many, nine calls). The per-run call and message counts beneath each
+  rung are the coordination overhead quantified in
   Table~\ref{tab:confirmatory}.}
   \label{fig:architectures}
 \end{figure*}
@@ -172,7 +191,10 @@ ground truth ($4\times3=1{,}188$ reviews), supporting objective
 precision/recall/F1. \textbf{E2 --- SWE-PRBench:} 50 real PRs with human review
 comments (600 reviews); metrics measure agreement with reviewers, not absolute
 correctness. \textbf{E3 --- industrial:} 30 real merged PRs from an actively
-developed full-stack portal (627 reviews), with no authoritative ground truth.
+developed full-stack portal, with no authoritative ground truth. Its 627 reviews
+comprise the four-arm ladder ($4\times30\times3=360$) plus three single-pass
+cross-family arms at three runs each: Haiku~4.5 (90), Kimi~K2.5 (90), and GLM~5
+(87; GLM returned usable output on 29 of 30 PRs).
 
 Findings are matched to ground truth both strictly (file$+$line) and
 \emph{semantically}, where an independent LLM judge makes a binary same-issue
@@ -203,9 +225,12 @@ three independent families \{Haiku 4.5, Kimi K2.5, GLM~5\} gain ${\geq}10$
 precision points at equal-or-higher F1, and all-three agreement exceeds the
 frozen model's own three-run recurrence by ${\geq}10$ points).
 
-The PR is the unit of analysis. Contrasts use paired Wilcoxon signed-rank tests,
-Cliff's $\delta$, seeded percentile-bootstrap CIs, and Holm--Bonferroni
-correction within each hypothesis family. Every raw output and judge score is
+The PR is the unit of analysis. Contrasts use paired Wilcoxon signed-rank tests
+on per-PR differences, with seeded percentile-bootstrap CIs over those
+differences and Holm--Bonferroni correction \emph{within} each hypothesis family
+(families are not pooled). Cliff's $\delta$ is an unpaired dominance measure over
+the two arms' per-PR distributions, so it complements rather than matches the
+paired test: we read significance from Wilcoxon and magnitude from $\delta$. Every raw output and judge score is
 persisted, so all statistics replay deterministically with zero new LLM calls.
 
 % =============================================================================
@@ -225,7 +250,7 @@ H-specialization \emph{(primary)} & Specialists beat compute-matched generalists
 H-compute        & 3 samples beat 1 & Supported on recall (0.63 vs.\ 0.50), not F1 \\
 H-communication  & Consensus beats Hierarchical & Unsupported (Holm $p{=}0.12$) \\
 H-efficiency     & Cost rises along the ladder & Supported (monotonic) \\
-H-complexity     & Effect grows with PR complexity & Not supported (exploratory) \\
+H-complexity     & Effect grows with PR complexity & Registered test unavailable; not supported under an exploratory proxy \\
 H-verify         & Self-consistency restores parity & \textbf{Fails} \\
 H-hetero-prec.\  & Cross-family agreement lifts precision & \textbf{Confirmed} (both sub-claims) \\
 \bottomrule
@@ -244,9 +269,14 @@ convert into quality: Agentless dominates every multi-agent arm on semantic F1
 (0.487 vs.\ 0.357--0.378; all Holm $p{<}0.001$, $\delta$ 0.30--0.36). What extra
 compute buys is recall---Generalists-3 and Hierarchical reach 0.62--0.63 vs.\
 0.503 (Holm $p{<}0.001$)---though Consensus, the most expensive arm, does not
-(0.536, Holm $p{=}0.12$), leaving H-communication unsupported. The trade is
-stark (Fig.~\ref{fig:support}a): one confirmed finding costs 0.34 LLM calls under
-Agentless and 1.76 under Consensus, a $5\times$ premium for a lower-F1 review. The operational ladder
+(0.536, Holm $p{=}0.12$), leaving H-communication unsupported. Because Consensus
+and Hierarchical differ in both communication pattern and inference budget
+(nine calls vs.\ three), this contrast evaluates the complete peer-consensus
+\emph{workflow} rather than communication in isolation: the tested workflow did
+not outperform the hierarchical one despite its larger call and message budget.
+The trade is stark (Fig.~\ref{fig:support}a): one confirmed finding costs 0.34
+LLM calls under Agentless and 1.76 under Consensus, a $5\times$ premium for a
+lower-F1 review. The operational ladder
 rises monotonically in messages, latency, and cost-per-TP, confirming
 H-efficiency.
 
@@ -290,8 +320,10 @@ The registered companion generated agentless reviews with two independent
 frontier families (Kimi K2.5, GLM~5, both clearing a pre-specified parity gate)
 over the same PRs with the unchanged frozen prompt; cross-model
 finding$\leftrightarrow$finding matching uses a fourth family (Nova Pro) as pair
-judge, keeping the chain non-circular. On the registered 80-PR disjoint
-remainder, \textbf{both sub-claims hold.} Findings corroborated by ${\geq}2$
+judge, keeping the chain non-circular. The hypothesis was formed on a 20-PR pilot
+subset, so it is tested on the registered 80-PR disjoint remainder of the
+100-instance benchmark (the confirmatory ladder itself uses the 99 instances that
+survived snapshot validation). There, \textbf{both sub-claims hold.} Findings corroborated by ${\geq}2$
 families reach per-PR precision 0.716 vs.\ 0.575 single-arm
 ($\bar\Delta{=}{+}0.141$, CI $[0.094,0.189]$, $p{<}10^{-4}$, $\delta{=}0.364$) at
 equal-or-higher F1. And findings all three families produce are golden-matched
@@ -301,8 +333,8 @@ repeats across all three of its own runs (gap ${+}0.348$, CI $[0.286,0.412]$).
 Fig.~\ref{fig:depth} makes the mechanism visible. Cross-family agreement climbs
 steeply with depth; same-model recurrence stays flat before saturating at its
 error ceiling. A second run of the same model contributes almost no independent
-evidence; a second independent family does. The instrument is
-judge-invariant---re-judging all 8{,}061 candidate pairs with a second pair judge
+evidence; a second independent family does. The instrument survives a change of
+pair judge---re-judging all 8{,}061 candidate pairs with a second pair judge
 agrees at $\kappa{=}0.952$ and reproduces the rows.
 
 \begin{figure}[t]
@@ -368,7 +400,7 @@ rule and style violations---while the lenient judges accept warranted concerns.
 Critically, inter-judge agreement here is poor ($\kappa{=}0.23$--$0.58$) against
 the pair judge's $\kappa{=}0.95$ on same-issue matching. Two questions that look
 alike behave differently: whether two findings describe the same issue is
-objective and judge-invariant; whether a finding is a real bug is not settled by
+objective and stable across judges; whether a finding is a real bug is not settled by
 an LLM judge of any size.
 
 Three conclusions survive every definition. The golden set is materially
@@ -393,9 +425,9 @@ is highest (0.27) and the most-agentful Consensus lowest (0.10). (Pool coverage
 is a different construct from golden recall---on which Agentless ranked
 \emph{lowest}---so we compare directions, not ranks.)
 
-The verification instrument, however, does not survive contact with unlabeled
-code---the gradient of Fig.~\ref{fig:depth} vanishes. Cross-family agreement is
-rare: only 23
+The verification instrument, however, could not be \emph{validated} on unlabeled
+code---the gradient of Fig.~\ref{fig:depth} cannot be measured here. Cross-family
+agreement is rare: only 23
 findings reach depth-2 and 5 reach depth-3 of 904 clusters, versus 114 and 137 on
 E1. More decisively, the genuineness judges disagree almost completely---Nova
 rates 99\% of findings genuine (a rubber stamp), DeepSeek 68\%, at
@@ -404,9 +436,12 @@ choice, not corroboration: flat at 100\% under Nova, and \emph{inverted} under
 the discriminating judge, where findings families agree on score 0\% versus 15\%
 for solo findings. This is precisely the failure
 Section~\ref{sec:completeness} anticipated, now with no golden set left to bound
-it: the objective matcher still works, and the correctness judge does not.
+it: the objective matcher still works, and the correctness judge does not. The
+negative result is therefore about the \emph{measurement apparatus}, not the
+underlying signal---with mutually inconsistent oracles and depth counts of 23 and
+5, cross-family agreement can here be neither confirmed nor refuted.
 
-\subsection{RQ3: the effect does not grow with PR complexity}
+\subsection{Complexity interaction: the effect does not grow with PR complexity}
 \label{sec:rq3}
 The registered stratifier was PR type, which requires the diff; the confirmatory
 runs did not persist it, so we substitute the closest available proxy---the
@@ -456,25 +491,28 @@ such; E3's depth-2/3 counts are small (23 and 5), so those CIs are wide.
 % =============================================================================
 \section{Conclusion}
 
-Under a pre-registered, compute-matched, frozen-model design, communication
-topology did not improve automated code review. Role specialization adds nothing
-over plain sampling (the primary null), no homogeneous topology approaches the
-single-pass baseline on F1, extra agents buy recall at a 3--9$\times$ cost
-premium, the self-consistency rescue our own pilot suggested does not replicate,
+Under a pre-registered, frozen-model design, none of the tested multi-agent
+workflows improved automated code review. Role specialization adds nothing over
+compute-matched sampling (the primary null), no arm exceeds the single-pass
+baseline's F1, extra agents buy recall at a 3--9$\times$ larger per-run call
+budget, the self-consistency rescue our own pilot suggested does not replicate,
 and the effect does not grow with PR complexity. The \emph{verification} axis is
 where multi-agent value lives: agreement between independent model families is a
-registered, judge-invariant precision instrument---findings all three families
-produce are real 89\% of the time versus 54\% for one model repeating
-itself---and the signal concentrates on functional bugs.
+registered precision instrument that survives a change of pair
+judge---findings all three families produce match injected ground truth 89\% of
+the time versus 54\% for one model repeating itself---and the signal concentrates
+on functional bugs.
 
-That instrument, however, has a precondition. On real unlabeled code it does not
-replicate, because LLM correctness judges disagree at $\kappa{=}0.03$ while the
-objective same-issue matcher stays reliable at $\kappa{=}0.95$. The practical
-guidance is direct: do not add homogeneous agents for quality; ship cross-family
-agreement as a cheap, model-agnostic trust signal on top of any single
-reviewer---and remember that the signal is only as trustworthy as the oracle
-behind it. Future work is a fixed-definition \emph{human} adjudication, the one
-oracle these judges could not provide.
+That instrument, however, has a precondition. On real unlabeled code we could not
+validate it, because LLM correctness judges disagree at $\kappa{=}0.03$ while the
+objective same-issue matcher stays reliable at $\kappa{=}0.95$; the industrial
+result therefore bounds \emph{oracle-based validation}, not cross-family
+agreement itself, which remains untested outside the labeled setting. The
+practical guidance follows that boundary: on review tasks resembling the
+benchmarked ones, do not add homogeneous agents for quality, and treat
+cross-family agreement as a candidate trust signal to be calibrated against a
+project's own oracle before it is relied upon. Future work is a fixed-definition
+\emph{human} adjudication, the one oracle these judges could not provide.
 
 \section*{Acknowledgment}
 The authors thank their capstone advisors Lino Coria Mendoza and Yvonne Coady for
