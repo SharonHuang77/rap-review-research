@@ -18,6 +18,8 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{url}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.16}
 
 \begin{document}
 
@@ -300,34 +302,45 @@ equal-or-higher F1. And findings all three families produce are golden-matched
 \textbf{89\%} of the time versus \textbf{54\%} for findings the frozen model
 repeats across all three of its own runs (gap ${+}0.348$, CI $[0.286,0.412]$).
 
-Table~\ref{tab:depth} makes the mechanism visible: cross-family agreement climbs
-steeply with depth where same-model recurrence stays flat before saturating at
-its error ceiling. A second run of the same model contributes almost no
-independent evidence; a second independent family does. The instrument is
+Fig.~\ref{fig:depth} makes the mechanism visible. Cross-family agreement climbs
+steeply with depth; same-model recurrence stays flat before saturating at its
+error ceiling. A second run of the same model contributes almost no independent
+evidence; a second independent family does. The instrument is
 judge-invariant---re-judging all 8{,}061 candidate pairs with a second pair judge
 agrees at $\kappa{=}0.952$ and reproduces the rows.
 
-\begin{table}[t]
-\caption{Corroboration depth: does agreement predict truth? The benchmark
-gradient (E1) is steep for independent \emph{families} and flat for repeated runs
-of one model. On real unlabeled code (E3) it does not replicate under either
-judge. E1 cells are golden-match rate; E3 cells are judge-genuine rate (no oracle
-exists). Cluster counts in parentheses.}
-\label{tab:depth}
+\begin{figure}[t]
 \centering
-\footnotesize
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Sources agreeing} & \textbf{depth 1} & \textbf{depth 2} & \textbf{depth 3} \\
-\midrule
-E1 same model $\times$3 runs      & 14\% (35)  & 17\% (30)  & 54\% (391) \\
-E1 cross-family $\times$3         & 28\% (419) & 51\% (114) & \textbf{89\% (137)} \\
-\midrule
-E3 industrial, judge Nova Pro     & 100\% (876) & 100\% (23) & 100\% (5) \\
-E3 industrial, judge DeepSeek     & 15\% (876)  & 0\% (23)   & 0\% (5) \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{tikzpicture}
+\begin{axis}[
+  width=\columnwidth, height=4.4cm,
+  ybar, bar width=9pt,
+  ymin=0, ymax=104,
+  enlarge x limits=0.28,
+  ylabel={golden-match rate (\%)},
+  xlabel={independent sources agreeing on a finding},
+  xtick={1,2,3},
+  ymajorgrids, grid style={gray!22},
+  legend style={at={(0.02,0.97)}, anchor=north west, draw=none,
+                fill=none, font=\footnotesize},
+  tick label style={font=\footnotesize},
+  label style={font=\footnotesize},
+  nodes near coords,
+  every node near coord/.append style={font=\tiny},
+]
+\addplot[fill=gray!45, draw=gray!70] coordinates {(1,14) (2,17) (3,54)};
+\addplot[fill=blue!55, draw=blue!75] coordinates {(1,28) (2,51) (3,89)};
+\legend{same model $\times$3 runs, cross-family $\times$3}
+\end{axis}
+\end{tikzpicture}
+\caption{Agreement predicts truth only when the agreeing sources are
+\emph{independent}. Repeating one model three times barely improves on a single
+run until full recurrence, and saturates at that model's error ceiling (54\%);
+three independent families reach 89\%. The gap at equal depth---${+}34$ and
+${+}35$ points---is the correlated-error mechanism made visible. This gradient
+does not replicate on unlabeled industrial code (Section~\ref{sec:industrial}).}
+\label{fig:depth}
+\end{figure}
 
 \subsection{Where the signal lives: functional bugs, not conventions}
 \label{sec:signal}
@@ -341,15 +354,11 @@ recognizable from the diff alone, whereas a repository-local convention is
 invisible to a generic reviewer that has never seen the project's standards.
 Independent families converge precisely where the defect is universal.
 
-This shapes what the trust signal is \emph{for}. The ${\geq}2$-family
-``trustworthy'' set decomposes into 52\% functional true positives, 20\% rule
-true positives, and 28\% golden-unmatched findings---so cross-family agreement
-should be deployed as a high-precision filter for correctness defects, not as a
-substitute for project-specific linting, which needs repository context rather
-than more reviewers. It also explains why the multi-agent arms gain recall
-without gaining quality: the extra findings they surface are concentrated in the
-class where models disagree, and disagreement is exactly the regime in which a
-finding is unlikely to be real.
+This shapes what the trust signal is \emph{for}. The ${\geq}2$-family set is 52\%
+functional true positives, 20\% rule true positives, and 28\% golden-unmatched,
+so cross-family agreement belongs as a high-precision filter for correctness
+defects---not as a substitute for project-specific linting, which needs
+repository context rather than more reviewers.
 
 \begin{table}[t]
 \caption{Recall at corroboration depth by injected defect type (80-PR set).
@@ -392,12 +401,11 @@ Three conclusions survive every definition. The golden set is materially
 incomplete, so golden-referenced precision \emph{understates} all arms equally,
 leaving relative comparisons intact. The ${\geq}2$-family set's effective
 precision is bracketed at 86--95\%. And false positives are less false than they
-appear: 21--32\% are localization near-misses---real defects reported at the
-wrong line---and high-severity findings are almost always real. The magnitude
-awaits human adjudication under a fixed definition; the direction does not. This
-audit also predicts what happens next: strip away the golden set entirely, as the
-industrial arm does, and the only remaining correctness signal is the one that
-was already unreliable.
+appear: 21--32\% are localization near-misses---real defects at the wrong
+line---and high-severity findings are almost always real. The magnitude awaits
+human adjudication; the direction does not. The audit also predicts what follows:
+remove the golden set, as the industrial arm does, and the only correctness
+signal left is the one that was already unreliable.
 
 \subsection{Industrial validation: the instrument needs an oracle}
 \label{sec:industrial}
@@ -412,7 +420,8 @@ is a different construct from golden recall---on which Agentless ranked
 \emph{lowest}---so we compare directions, not ranks.)
 
 The verification instrument, however, does not survive contact with unlabeled
-code (Table~\ref{tab:depth}, lower rows). Cross-family agreement is rare: only 23
+code---the gradient of Fig.~\ref{fig:depth} vanishes. Cross-family agreement is
+rare: only 23
 findings reach depth-2 and 5 reach depth-3 of 904 clusters, versus 114 and 137 on
 E1. More decisively, the genuineness judges disagree almost completely---Nova
 rates 99\% of findings genuine (a rubber stamp), DeepSeek 68\%, at
@@ -441,20 +450,18 @@ non-significant counter-directional trend, not a finding.
 \section{Threats to Validity}
 \label{sec:threats}
 
-\textbf{Construct.} E3 lacks ground truth, so its metrics are proxies and are
-labelled as such; no correctness is claimed there. Even the objective benchmark
-is incomplete---three judge families agree the golden set misses real defects but
-disagree on how many (33--76\%)---so golden-referenced precision is a lower
-bound. Relative comparisons are unaffected, because incompleteness applies to
-every arm identically. The pair judge is validated instrument-side
-($\kappa{=}0.95$ over 8{,}061 pairs) but its human validation is pending, so
-corroboration numbers remain instrument-relative.
+\textbf{Construct.} E3 has no ground truth, so its metrics are proxies and are
+labelled as such. Even the benchmark's golden set is incomplete
+(Section~\ref{sec:completeness}), so golden-referenced precision is a lower bound;
+relative comparisons are unaffected, because incompleteness applies to every arm
+identically. The pair judge is validated instrument-side ($\kappa{=}0.95$) but its
+human validation is pending, so corroboration numbers remain instrument-relative.
 
 \textbf{Internal.} Differences could stem from confounds other than topology. We
 hold model, prompts, roles, and sampling budget fixed and review a byte-identical
 snapshot per PR across all four arms; the compute-matched Generalists-3 control
-further separates structure from raw sampling. The evaluation engine is
-deterministic and replays from stored artifacts.
+further separates structure from raw sampling, and the evaluation engine replays
+deterministically from stored artifacts.
 
 \textbf{External.} Qodo is a synthetic-injection benchmark: planted defects are
 likely cleaner and more localizable than natural review targets, so absolute
@@ -462,16 +469,15 @@ scores sit on a favorable setting even though within-benchmark comparisons hold.
 The SWE-PRBench replication and the industrial arm partly offset this. One
 registered piece is deferred---the Sonnet~4.5 robustness arm at confirmatory
 scale, whose cost is prohibitive at $99\times4\times3$; the exploratory pilot
-stands in its place, and single-model-family generalizability, specifically the
-ranking \emph{within} the multi-agent arms, is stated as a limitation rather than
+stands in its place, so single-model-family generalizability---specifically the
+ranking \emph{within} the multi-agent arms---is stated as a limitation rather than
 claimed. The industrial repository is partly AI-authored, which is disclosed.
 
 \textbf{Conclusion.} The headline claims (the specialization null, Agentless F1
 dominance, H-verify's failure, and both H-hetero sub-claims) are confirmatory:
-registered sample sizes, paired non-parametric tests, effect sizes with CIs, and
-Holm correction within families. The finer stratifications and the RQ3 analysis
-are exploratory and labeled as such; E3's depth-2/3 counts are small (23 and 5),
-so those CIs are wide.
+registered sample sizes, paired tests, effect sizes with CIs, and Holm correction
+within families. The finer stratifications and RQ3 are exploratory and labeled as
+such; E3's depth-2/3 counts are small (23 and 5), so those CIs are wide.
 
 % =============================================================================
 \section{Conclusion}
