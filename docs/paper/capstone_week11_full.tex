@@ -297,10 +297,7 @@ steeply with depth where same-model recurrence stays flat before saturating at
 its error ceiling. A second run of the same model contributes almost no
 independent evidence; a second independent family does. The instrument is
 judge-invariant---re-judging all 8{,}061 candidate pairs with a second pair judge
-agrees at $\kappa{=}0.952$ and reproduces the rows. The signal is carried by the
-hard class: of injected functional bugs, 80/61/43\% are caught by ${\geq}1/2/3$
-families, versus 45/26/18\% of project-specific rule violations, which a generic
-reviewer cannot know.
+agrees at $\kappa{=}0.952$ and reproduces the rows.
 
 \begin{table}[t]
 \caption{Corroboration depth: does agreement predict truth? The benchmark
@@ -324,6 +321,76 @@ E3 industrial, judge DeepSeek     & 15\% (876)  & 0\% (23)   & 0\% (5) \\
 \end{tabular}
 \end{table}
 
+\subsection{Where the signal lives: functional bugs, not conventions}
+\label{sec:signal}
+Cross-family agreement is not uniformly informative---it concentrates on one
+class of defect. Qodo injects two kinds, and stratifying the 80-PR set by them
+separates the two cleanly (Table~\ref{tab:defect}). Universal \emph{functional}
+bugs are found by all three families 43\% of the time and by at least two 61\% of
+the time; project-specific \emph{rule} violations reach only 18\% and 26\%. The
+asymmetry has a simple cause: a null dereference or an unguarded input is
+recognizable from the diff alone, whereas a repository-local convention is
+invisible to a generic reviewer that has never seen the project's standards.
+Independent families converge precisely where the defect is universal.
+
+This shapes what the trust signal is \emph{for}. The ${\geq}2$-family
+``trustworthy'' set decomposes into 52\% functional true positives, 20\% rule
+true positives, and 28\% golden-unmatched findings---so cross-family agreement
+should be deployed as a high-precision filter for correctness defects, not as a
+substitute for project-specific linting, which needs repository context rather
+than more reviewers. It also explains why the multi-agent arms gain recall
+without gaining quality: the extra findings they surface are concentrated in the
+class where models disagree, and disagreement is exactly the regime in which a
+finding is unlikely to be real.
+
+\begin{table}[t]
+\caption{Recall at corroboration depth by injected defect type (80-PR set).
+Independent families converge on universal functional bugs; project-specific
+conventions stay invisible to a generic reviewer.}
+\label{tab:defect}
+\centering
+\footnotesize
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Defect type} & $\mathbf{\geq}$\textbf{1 family} & $\mathbf{\geq}$\textbf{2} & $\mathbf{\geq}$\textbf{3} \\
+\midrule
+Functional bug ($n{=}217$)    & 80\% & \textbf{61\%} & \textbf{43\%} \\
+Rule violation ($n{=}220$)    & 45\% & 26\% & 18\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{How complete is the oracle?}
+\label{sec:completeness}
+Every precision figure above is measured against the injected golden set, so its
+completeness bounds their interpretation. We audited it confirmatorily: three
+independent judge families read every golden-\emph{unmatched} finding against the
+diff (``does this identify a genuine problem?''), plus a calibration pass on
+golden-\emph{matched} findings. Llama~3.3 calls 76\% of unmatched findings real
+(92\% on known defects); Mistral Large~3 calls 73\% (90\%); DeepSeek~V3.2 calls
+only 33\% (71\%).
+
+The disagreement is definitional, not a capability gap. DeepSeek is a strict
+under-caller that rejects roughly 29\% of \emph{known injected defects}---largely
+rule and style violations it declines to call genuine problems---while the two
+lenient judges accept warranted concerns. Critically, inter-judge agreement on
+this question is poor ($\kappa{=}0.23$--$0.58$), in sharp contrast to the pair
+judge's $\kappa{=}0.95$ on same-issue matching. Two questions that look similar
+behave completely differently: whether two findings describe the same issue is
+objective and judge-invariant; whether a finding is a real bug is not settled by
+an LLM judge of any size.
+
+Three conclusions survive every definition. The golden set is materially
+incomplete, so golden-referenced precision \emph{understates} all arms equally,
+leaving relative comparisons intact. The ${\geq}2$-family set's effective
+precision is bracketed at 86--95\%. And false positives are less false than they
+appear: 21--32\% are localization near-misses---real defects reported at the
+wrong line---and high-severity findings are almost always real. The magnitude
+awaits human adjudication under a fixed definition; the direction does not. This
+audit also predicts what happens next: strip away the golden set entirely, as the
+industrial arm does, and the only remaining correctness signal is the one that
+was already unreliable.
+
 \subsection{Industrial validation: the instrument needs an oracle}
 \label{sec:industrial}
 We ran the registered industrial arm on 30 real merged PRs (627 reviews: the
@@ -344,11 +411,9 @@ rates 99\% of findings genuine (a rubber stamp), DeepSeek 68\%, at
 $\kappa{=}0.03$---so the depth$\rightarrow$precision relation is set by judge
 choice, not corroboration: flat at 100\% under Nova, and \emph{inverted} under
 the discriminating judge, where findings families agree on score 0\% versus 15\%
-for solo findings. This sharpens a pattern already visible on the benchmark,
-where three judge families split 33--76\% on whether golden-unmatched findings
-were real ($\kappa{=}0.23$--$0.58$): same-issue \emph{matching} is objective and
-judge-invariant, while ``is this a real bug?'' is not settled by an LLM judge of
-any size.
+for solo findings. This is precisely the failure
+Section~\ref{sec:completeness} anticipated, now with no golden set left to bound
+it: the objective matcher still works, and the correctness judge does not.
 
 \subsection{RQ3: the effect does not grow with PR complexity}
 \label{sec:rq3}
