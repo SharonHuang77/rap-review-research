@@ -85,57 +85,67 @@ def fig2_depth_gradient():
     print(f"wrote {p}")
 
 
-def fig_quality_cost():
-    """OPTIONAL (not currently used in the paper): the accuracy/cost tradeoff."""
+def fig3_support():
+    """Two supporting panels, rendered as ONE two-column-spanning figure so the
+    page cost is ~0.3pp instead of ~0.6pp for two separate floats.
+
+    (a) the accuracy/cost tradeoff: Agentless Pareto-dominates.
+    (b) where the cross-family signal lives: universal bugs, not conventions.
+    """
+    fig, (axa, axb) = plt.subplots(1, 2, figsize=(7.0, 2.05))
+
+    # --- (a) quality vs cost -------------------------------------------------
     arms = ["Agentless", "Generalists-3", "Hierarchical", "Consensus"]
     f1 = [0.487, 0.357, 0.378, 0.369]
     cost_tp = [0.34, 0.45, 0.50, 1.76]
+    offs = [(7, 4), (6, -11), (6, 5), (-4, 8)]
+    axa.scatter(cost_tp, f1, s=52, zorder=3,
+                color=[C_CROSS, C_SAME, C_SAME, C_SAME],
+                edgecolor=["#123061", "#6B7280", "#6B7280", "#6B7280"], linewidth=0.7)
+    for a, x, y, off in zip(arms, cost_tp, f1, offs):
+        axa.annotate(a, (x, y), textcoords="offset points", xytext=off,
+                     fontsize=7, fontweight="bold" if a == "Agentless" else "normal")
+    axa.annotate("cheapest AND best", xy=(0.34, 0.487), xytext=(0.62, 0.452),
+                 fontsize=6.5, color="#B91C1C",
+                 arrowprops=dict(arrowstyle="->", lw=0.7, color="#B91C1C"))
+    axa.set_xlabel("LLM calls per confirmed true positive")
+    axa.set_ylabel("semantic F1")
+    axa.set_xlim(0.15, 2.05)
+    axa.set_ylim(0.32, 0.54)
+    axa.grid(color="#E5E7EB", linewidth=0.6)
+    axa.set_axisbelow(True)
+    axa.set_title("(a) more agents cost more, review worse", fontsize=8, pad=4)
 
-    fig, ax = plt.subplots(figsize=(3.5, 2.3))
-    ax.scatter(cost_tp, f1, s=46, color=C_CROSS, zorder=3)
-    for a, x, y in zip(arms, cost_tp, f1):
-        ax.annotate(a, (x, y), textcoords="offset points", xytext=(6, 3),
-                    fontsize=7)
-    ax.set_xlabel("LLM calls per confirmed true positive")
-    ax.set_ylabel("semantic F1")
-    ax.set_xlim(0.2, 2.0)
-    ax.set_ylim(0.30, 0.53)
-    ax.grid(color="#E5E7EB", linewidth=0.6)
-    ax.set_axisbelow(True)
-    fig.tight_layout(pad=0.25)
-    p = OUT / "figX_quality_cost.png"
-    fig.savefig(p, bbox_inches="tight")
-    plt.close(fig)
-    print(f"wrote {p} (optional)")
-
-
-def fig_defect_type():
-    """OPTIONAL (not currently used): where the cross-family signal lives."""
+    # --- (b) where the signal lives -----------------------------------------
     depths = np.array([1, 2, 3])
     functional = np.array([80, 61, 43])   # n=217
     rule = np.array([45, 26, 18])         # n=220
-
-    fig, ax = plt.subplots(figsize=(3.5, 2.2))
     w = 0.36
-    ax.bar(depths - w / 2, functional, w, label="functional bug (n=217)",
-           color=C_CROSS, edgecolor="#123061", linewidth=0.6)
-    ax.bar(depths + w / 2, rule, w, label="rule violation (n=220)",
-           color=C_SAME, edgecolor="#6B7280", linewidth=0.6, hatch="//")
-    ax.set_xticks(depths)
-    ax.set_xlabel("families agreeing")
-    ax.set_ylabel("recall (%)")
-    ax.set_ylim(0, 92)
-    ax.grid(axis="y", color="#E5E7EB", linewidth=0.6)
-    ax.set_axisbelow(True)
-    ax.legend(frameon=False, fontsize=7)
-    fig.tight_layout(pad=0.25)
-    p = OUT / "figX_defect_type.png"
+    ba = axb.bar(depths - w / 2, functional, w, label="functional bug (n=217)",
+                 color=C_CROSS, edgecolor="#123061", linewidth=0.6)
+    bb = axb.bar(depths + w / 2, rule, w, label="rule violation (n=220)",
+                 color=C_SAME, edgecolor="#6B7280", linewidth=0.6, hatch="//")
+    for bars, vals in ((ba, functional), (bb, rule)):
+        for bar, v in zip(bars, vals):
+            axb.text(bar.get_x() + bar.get_width() / 2, v + 1.8, f"{v}%",
+                     ha="center", va="bottom", fontsize=7)
+    axb.set_xticks(depths)
+    axb.set_xlabel("independent families agreeing")
+    axb.set_ylabel("recall (%)")
+    axb.set_ylim(0, 96)
+    axb.grid(axis="y", color="#E5E7EB", linewidth=0.6)
+    axb.set_axisbelow(True)
+    axb.legend(frameon=False, fontsize=7, loc="upper right")
+    axb.set_title("(b) agreement finds universal bugs, not conventions",
+                  fontsize=8, pad=4)
+
+    fig.tight_layout(pad=0.4, w_pad=2.0)
+    p = OUT / "fig3_support.png"
     fig.savefig(p, bbox_inches="tight")
     plt.close(fig)
-    print(f"wrote {p} (optional)")
+    print(f"wrote {p}")
 
 
 if __name__ == "__main__":
     fig2_depth_gradient()
-    fig_quality_cost()
-    fig_defect_type()
+    fig3_support()

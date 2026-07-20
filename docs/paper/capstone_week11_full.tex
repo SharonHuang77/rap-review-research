@@ -75,13 +75,12 @@ cross-component issues; or the structure may add cost without accuracy. We ask:
 and efficiency of automated code review?
 \end{quote}
 
-Answering this needs a control that most studies omit. If a three-specialist team
-beats a single reviewer, the cause may simply be three samples rather than three
+Answering this needs a control most studies omit. If a three-specialist team beats
+a single reviewer, the cause may simply be three samples rather than three
 \emph{roles}. We therefore add a compute-matched \textbf{Generalists-3} arm---the
-same generalist prompt sampled three times and merged---so that specialization is
-tested against equal compute rather than against a single call. Agentless is a
-strong baseline, since simple non-agent pipelines are competitive on software
-tasks~\cite{agentless}.
+same prompt sampled three times and merged---so specialization is tested against
+equal compute, not against a single call. Agentless is a strong baseline, since
+simple non-agent pipelines are competitive on software tasks~\cite{agentless}.
 
 Because a benchmark result is only as trustworthy as its evaluation, we evaluate
 on three complementary datasets---injected-defect ground truth, human-reviewer
@@ -120,16 +119,15 @@ does not beat the best single model on quality~\cite{selfmoa}. Our contribution
 is to isolate \emph{topology} under a compute-matched control, and to show where
 model diversity does pay.
 
-\textbf{Verification and LLM judges.} Using a separate LLM to judge outputs
-scales evaluation~\cite{llmjudge}, verifier-based selection converts extra
-samples into quality~\cite{cobbe}, and panels of diverse judges can replace a
-single judge~\cite{verga}; but judges exhibit self-preference
-bias~\cite{panickssery} and are sensitive to prompt form~\cite{sclar}. We use LLM
-judges in two distinct roles: an \emph{objective} same-issue matcher, and a
-\emph{subjective} genuineness judge. A central result is that the first is
-reliable while the second is not, which bounds LLM-judged verification. This also
-provides a powered test of the correlated-error conjecture for AI code
-review~\cite{zietsman}.
+\textbf{Verification and LLM judges.} LLM judges scale
+evaluation~\cite{llmjudge}, verifier-based selection converts extra samples into
+quality~\cite{cobbe}, and diverse judge panels can replace a single
+judge~\cite{verga}; but judges show self-preference bias~\cite{panickssery} and
+prompt-form sensitivity~\cite{sclar}. We use judges in two roles---an
+\emph{objective} same-issue matcher and a \emph{subjective} genuineness
+judge---and find the first reliable and the second not, which bounds LLM-judged
+verification and gives a powered test of the correlated-error conjecture for AI
+code review~\cite{zietsman}.
 
 % =============================================================================
 \section{Study Design}
@@ -247,8 +245,8 @@ convert into quality: Agentless dominates every multi-agent arm on semantic F1
 compute buys is recall---Generalists-3 and Hierarchical reach 0.62--0.63 vs.\
 0.503 (Holm $p{<}0.001$)---though Consensus, the most expensive arm, does not
 (0.536, Holm $p{=}0.12$), leaving H-communication unsupported. The trade is
-stark: one confirmed finding costs 0.34 LLM calls under Agentless and 1.76 under
-Consensus, a $5\times$ premium for a lower-F1 review. The operational ladder
+stark (Fig.~\ref{fig:support}a): one confirmed finding costs 0.34 LLM calls under
+Agentless and 1.76 under Consensus, a $5\times$ premium for a lower-F1 review. The operational ladder
 rises monotonically in messages, latency, and cost-per-TP, confirming
 H-efficiency.
 
@@ -325,12 +323,11 @@ does not replicate on unlabeled industrial code (Section~\ref{sec:industrial}).}
 \label{sec:signal}
 Cross-family agreement is not uniformly informative---it concentrates on one
 class of defect. Qodo injects two kinds, and stratifying the 80-PR set by them
-separates the two cleanly (Table~\ref{tab:defect}). Universal \emph{functional}
-bugs are found by all three families 43\% of the time and by at least two 61\% of
-the time; project-specific \emph{rule} violations reach only 18\% and 26\%. The
-asymmetry has a simple cause: a null dereference or an unguarded input is
-recognizable from the diff alone, whereas a repository-local convention is
-invisible to a generic reviewer that has never seen the project's standards.
+separates them cleanly (Fig.~\ref{fig:support}b): universal \emph{functional} bugs
+are recovered far more often at every depth than project-specific \emph{rule}
+violations. The asymmetry has a simple cause. A null dereference or an unguarded
+input is recognizable from the diff alone, whereas a repository-local convention
+is invisible to a generic reviewer that has never seen the project's standards.
 Independent families converge precisely where the defect is universal.
 
 This shapes what the trust signal is \emph{for}. The ${\geq}2$-family set is 52\%
@@ -339,22 +336,21 @@ so cross-family agreement belongs as a high-precision filter for correctness
 defects---not as a substitute for project-specific linting, which needs
 repository context rather than more reviewers.
 
-\begin{table}[t]
-\caption{Recall at corroboration depth by injected defect type (80-PR set).
-Independent families converge on universal functional bugs; project-specific
-conventions stay invisible to a generic reviewer.}
-\label{tab:defect}
+\begin{figure*}[t]
 \centering
-\footnotesize
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Defect type} & $\mathbf{\geq}$\textbf{1 family} & $\mathbf{\geq}$\textbf{2} & $\mathbf{\geq}$\textbf{3} \\
-\midrule
-Functional bug ($n{=}217$)    & 80\% & \textbf{61\%} & \textbf{43\%} \\
-Rule violation ($n{=}220$)    & 45\% & 26\% & 18\% \\
-\bottomrule
-\end{tabular}
-\end{table}
+% Generated by figures/make_figures.py (or figures/figures.ipynb).
+\includegraphics[width=\textwidth]{fig3_support.png}
+\caption{Two supporting views of the same conclusion. \textbf{(a)} The
+accuracy/cost frontier: Agentless Pareto-dominates---it is simultaneously the
+cheapest arm (0.34 LLM calls per confirmed true positive) and the most accurate
+(semantic F1 0.487), while Consensus costs $5\times$ more for a worse review.
+\textbf{(b)} Where cross-family agreement carries signal: universal functional
+bugs are recovered far more often at every depth than project-specific rule
+violations, which a reviewer without repository context cannot know. Together
+they explain the headline result---extra agents add cost and surface findings in
+exactly the class where models disagree.}
+\label{fig:support}
+\end{figure*}
 
 \subsection{How complete is the oracle?}
 \label{sec:completeness}
@@ -366,13 +362,12 @@ golden-\emph{matched} findings. Llama~3.3 calls 76\% of unmatched findings real
 (92\% on known defects); Mistral Large~3 calls 73\% (90\%); DeepSeek~V3.2 calls
 only 33\% (71\%).
 
-The disagreement is definitional, not a capability gap. DeepSeek is a strict
+The disagreement is definitional, not a capability gap: DeepSeek is a strict
 under-caller that rejects roughly 29\% of \emph{known injected defects}---largely
-rule and style violations it declines to call genuine problems---while the two
-lenient judges accept warranted concerns. Critically, inter-judge agreement on
-this question is poor ($\kappa{=}0.23$--$0.58$), in sharp contrast to the pair
-judge's $\kappa{=}0.95$ on same-issue matching. Two questions that look similar
-behave completely differently: whether two findings describe the same issue is
+rule and style violations---while the lenient judges accept warranted concerns.
+Critically, inter-judge agreement here is poor ($\kappa{=}0.23$--$0.58$) against
+the pair judge's $\kappa{=}0.95$ on same-issue matching. Two questions that look
+alike behave differently: whether two findings describe the same issue is
 objective and judge-invariant; whether a finding is a real bug is not settled by
 an LLM judge of any size.
 
@@ -443,14 +438,14 @@ further separates structure from raw sampling, and the evaluation engine replays
 deterministically from stored artifacts.
 
 \textbf{External.} Qodo is a synthetic-injection benchmark: planted defects are
-likely cleaner and more localizable than natural review targets, so absolute
-scores sit on a favorable setting even though within-benchmark comparisons hold.
-The SWE-PRBench replication and the industrial arm partly offset this. One
-registered piece is deferred---the Sonnet~4.5 robustness arm at confirmatory
-scale, whose cost is prohibitive at $99\times4\times3$; the exploratory pilot
-stands in its place, so single-model-family generalizability---specifically the
-ranking \emph{within} the multi-agent arms---is stated as a limitation rather than
-claimed. The industrial repository is partly AI-authored, which is disclosed.
+cleaner and more localizable than natural review targets, so absolute scores sit
+on a favorable setting even though within-benchmark comparisons hold; the
+SWE-PRBench replication and the industrial arm partly offset this. One registered
+piece is deferred---the Sonnet~4.5 robustness arm at confirmatory scale, whose
+cost is prohibitive at $99\times4\times3$---so the exploratory pilot stands in its
+place and single-model-family generalizability, specifically the ranking
+\emph{within} the multi-agent arms, is stated as a limitation rather than claimed.
+The industrial repository is partly AI-authored, which is disclosed.
 
 \textbf{Conclusion.} The headline claims (the specialization null, Agentless F1
 dominance, H-verify's failure, and both H-hetero sub-claims) are confirmatory:
