@@ -1,11 +1,20 @@
 % =============================================================================
 % CS7980 Capstone paper — 6-PAGE CONFERENCE VERSION.
 % Confirmatory campaign (E1 Qodo, E2 SWE-PRBench) + cross-family companion
-% + E3 industrial arm + RQ3. All numbers replay from persisted artifacts with
-% zero LLM calls (phase2-results/, hetero-confirmatory/, rap-portal-results/).
+% + E3 industrial arm + complexity interaction. All numbers replay from persisted
+% artifacts with zero LLM calls (phase2-results/, hetero-confirmatory/,
+% rap-portal-results/).
 %
-% TODO before submission: fig1_architectures.png must be extended to FOUR
-% panels (it currently omits the Generalists-3 rung).
+% TODO before submission:
+%  1. OSF registration identifier/DOI + dates are still unfilled (Section III-C).
+%  2. fig1_architectures_week11.png needs three edits so the image agrees with
+%     the caption: (a) banner "ONLY THE COMMUNICATION TOPOLOGY CHANGES" ->
+%     "EACH RUNG ADDS ONE CAPABILITY: SAMPLING -> SPECIALIZATION ->
+%     COMMUNICATION"; (b) label the Hierarchical Coordinator and Synthesis boxes
+%     "Deterministic" (they are code, not LLM calls -- that is why the arm shows
+%     3 calls, not 5); (c) "Same Roles & Task Definitions" in the Held-Constant
+%     row overclaims (Agentless and Generalists-3 have no roles).
+%  3. Verify references [11] and [13] against their published records.
 % =============================================================================
 
 \documentclass[conference]{IEEEtran}
@@ -163,11 +172,6 @@ of three runs.
 
 \begin{figure*}[t]
   \centering
-  % TODO before submission: the figure's "Verification" block still lists the
-  % deprecated metric set (Cross-ARCHITECTURE Agreement, Static Analysis
-  % Agreement, Later Fix Rate). The reported industrial metrics are cross-FAMILY
-  % corroboration depth, judge-genuine proxy precision, and pool-coverage proxy
-  % recall; static-analysis and later-fix were specified but not run.
   \includegraphics[width=\textwidth]{fig1_architectures_week11.png}
   \caption{The four-rung ladder. Each rung adds exactly one capability over its
   predecessor---sampling, then specialization, then communication---while the PR
