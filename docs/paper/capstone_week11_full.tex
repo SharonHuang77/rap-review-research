@@ -87,8 +87,8 @@ reach precision 0.72 vs.\ 0.54 single-arm at equal-or-higher F1, and
 findings all three families agree on are real 89\% of the time vs.\ 54\%
 for one model repeating itself across three runs (gap CI $[0.29, 0.41]$;
 judge-invariant, $\kappa{=}0.95$ across two independent pair judges). The industrial arm---30 real merged PRs
-from a production portal (627 reviews)---validates the operational ladder (the
-cost and recall orderings hold) but bounds the verification result:
+from a production portal (627 reviews)---validates the cost/communication ladder and the
+more-agents-do-not-help verdict but bounds the verification result:
 cross-family agreement is rare on diffuse real findings and the genuineness
 judges collapse to $\kappa{=}0.03$, so the precision instrument does not
 transfer without a trustworthy correctness oracle. In
@@ -375,37 +375,27 @@ ecological validity but without authoritative ground truth.
 
 \subsection{Evaluation Metrics}
 Metrics are read according to the evidence each dataset offers
-(Table~\ref{tab:metrics}). For the industrial case study, correctness cannot
-be measured directly, so we do not report precision/recall/F1. Instead,
-\emph{industrial verification} corroborates findings via: (i)~Cross-Architecture
-Agreement---the fraction of an architecture's findings independently found by
-another architecture on the same PR (matched on file, line, category, and
-title similarity); (ii)~Static-Analysis Agreement---the fraction coinciding
-with issues from conventional static-analysis tools; (iii)~LLM-Judge
-Validation---the fraction a separate, impartial LLM classifies as valid given
-the diff; (iv)~Later-Fix Rate---the fraction whose location is modified in
-later commits; and (v)~Evidence Score, a supporting heuristic over severity,
-confidence, and finding volume that reflects review strength, not
-correctness. Operational metrics (latency, tokens, cost, LLM calls,
-messages) are collected identically across all datasets.
-
-Formally, let $F$ be an architecture's validated findings on a PR and $A_x$
-the findings of architecture $x$. Writing $m(f, S) = 1$ when a finding $f$
-matches some element of set $S$ (same file, a small line window, and
-matching category or title), the corroboration signals are
-\begin{align}
-\mathrm{CAA}_x &= \frac{1}{|A_x|}\sum_{f \in A_x}
-   \ind\!\left[\exists\, y \neq x : m(f, A_y)\right], \\
-\mathrm{SAA} &= \frac{1}{|F|}\sum_{f \in F}
-   \ind\!\left[m(f, S_{\text{static}})\right], \\
-\mathrm{LJV} &= \frac{1}{|F|}\,\big|\{f \in F : \mathrm{judge}(f) = \text{valid}\}\big|, \\
-\mathrm{LFR} &= \frac{1}{|F|}\,\big|\{f \in F : \mathrm{loc}(f)\ \text{changed later}\}\big|,
-\end{align}
-where $S_{\text{static}}$ is the set of static-analysis issues and
-$\mathrm{judge}(\cdot)$ is an independent LLM verdict. Each value lies in
-$[0,1]$ and is reported only when computable---for example,
-cross-architecture agreement requires at least two architectures and a
-non-empty finding set.
+(Table~\ref{tab:metrics}). For the industrial case study, which has no
+authoritative ground truth, we replace correctness with corroboration
+proxies that mirror the E1 cross-family analysis
+(Section~\ref{sec:hetero}). \emph{Cross-family corroboration depth} clusters
+independent findings with an LLM pair judge (Nova Pro,
+$\tau_{\text{pair}}{=}0.7$, union-find); a cluster's depth is the number of
+independent model families (Haiku, Kimi, GLM) that produced it, and we report
+the fraction of clusters a separate LLM judge rates genuine at each depth.
+\emph{Proxy precision} is that per-arm judge-genuine rate, reported under two
+independent judges given their disagreement. \emph{Proxy recall} is
+leave-one-out cross-family pool coverage---the fraction of the cross-family
+pseudo-ground-truth (findings ${\geq}2$ families agree on, rebuilt to exclude
+the scored arm's own family) that an arm recovers. Two further signals
+specified as triangulation---agreement with conventional static analysis and
+later-fix mining of subsequent commits---were not run; the Evidence Score is
+retained only as a supporting heuristic, not a correctness measure.
+Operational metrics (latency, tokens, cost, LLM calls, messages) are collected
+identically across all datasets. Crucially, the industrial corroboration axis
+is \emph{cross-family} (independent models), not cross-architecture (one model,
+different topologies), since E1 (Section~\ref{sec:hetero}) shows only the former
+carries signal.
 
 \begin{table}[t]
 \caption{Evaluation Metrics by Dataset}
@@ -418,11 +408,9 @@ Metric & Qodo & SWE-PRBench & RAP Portal \\
 Precision / Recall / F1        & \checkmark & $\circ$ & --- \\
 Localization Accuracy          & \checkmark & ---     & --- \\
 Human Review Agreement         & ---        & \checkmark & --- \\
-Cross-Architecture Agreement   & ---        & ---     & \checkmark \\
-Static-Analysis Agreement      & ---        & ---     & \checkmark \\
-LLM-Judge Validation           & ---        & ---     & \checkmark \\
-Later-Fix Rate                 & ---        & ---     & \checkmark \\
-Evidence Score (heuristic)     & ---        & ---     & \checkmark \\
+Cross-Family Corroboration Depth & ---      & ---     & \checkmark \\
+Proxy Precision (judge-genuine)  & ---      & ---     & \checkmark \\
+Proxy Recall (pool coverage)     & ---      & ---     & \checkmark \\
 Latency / Cost / Tokens        & \checkmark & \checkmark & \checkmark \\
 LLM Calls / Message Count      & \checkmark & \checkmark & \checkmark \\
 \bottomrule
@@ -566,7 +554,9 @@ $p{<}0.001$), though Consensus---the most expensive arm---does not (0.536,
 Holm $p{=}0.12$), leaving H-communication unsupported. Efficiency makes
 the trade stark: one golden-confirmed finding costs 0.34 LLM calls under
 Agentless and 1.76 under Consensus (pooled, 80-PR subset)---a $5\times$
-premium for a lower-F1 review. An exploratory Sonnet~4.5 pilot preserves
+premium for a lower-F1 review. The operational ladder itself rises
+monotonically in message count, latency, and cost-per-TP (LLM calls tie at
+Generalists-3/Hierarchical), confirming H-efficiency. An exploratory Sonnet~4.5 pilot preserves
 the ordering (single-pass 0.57 vs.\ 0.39--0.44), suggesting the ranking is
 not a Haiku artifact, though the robustness arm has not run at
 confirmatory scale.
@@ -719,12 +709,14 @@ We ran the registered industrial arm on 30 real merged PRs from the
 Indigenomics portal (627 reviews: the four-arm ladder plus the cross-family
 agentless axis, three runs each), scored with the same instruments as E1 but
 with proxies in place of golden labels (judge-genuine precision;
-leave-one-out cross-family pool coverage for recall). Two operational
-patterns transfer cleanly: the communication-cost ladder is unchanged
-(Agentless 1~call / 13\,s through Consensus 9~calls / 173\,s), and the recall
-ladder reproduces E1's ordering---Agentless has the highest pool coverage
-(0.27) and Consensus the lowest (0.10), so extra agents again do not buy
-coverage on real code.
+leave-one-out cross-family pool coverage for recall). Two patterns transfer.
+The communication-cost ladder is unchanged (Agentless 1~call / 13\,s through
+Consensus 9~calls / 173\,s). And the pool-coverage recall proxy gives the same
+qualitative verdict as the benchmarks---more agents do not buy coverage: the
+single-pass baseline is highest (0.27) and the most-agentful Consensus lowest
+(0.10). (Pool coverage is a different construct from E1's golden recall---on
+which Agentless ranked \emph{lowest}---so we compare the ``more agents do not
+help'' direction, not the arm ranks.)
 
 The \emph{verification} instrument, however, does not survive contact with
 unlabeled code (Table~\ref{tab:industrial}). Cross-family agreement is rare
@@ -744,9 +736,11 @@ as trustworthy as the correctness oracle behind it, which real unlabeled
 repositories do not provide.
 
 \begin{table}[t]
-\caption{Industrial arm (30 real PRs): cross-family corroboration-depth
-genuine rate. The E1 precision gradient does not replicate under either
-genuine-judge.}
+\caption{Industrial arm (30 real PRs): fraction of cross-family clusters
+rated real, by corroboration depth. The E1 reference row is \emph{golden-match}
+rate (an objective oracle exists); the industrial rows are \emph{judge-genuine}
+rate (none does). The E1 precision gradient does not replicate under either
+judge.}
 \label{tab:industrial}
 \centering
 \begin{tabular}{@{}lccc@{}}
