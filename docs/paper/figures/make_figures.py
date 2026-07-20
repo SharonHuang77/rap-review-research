@@ -71,7 +71,9 @@ def fig2_depth_gradient():
 
     ax.set_xlim(0.55, 3.62)   # right margin so the gap labels never clip
     ax.set_xticks(depths)
-    ax.set_xlabel("independent sources agreeing on a finding")
+    # NOT "independent sources" -- the grey series is 3 runs of ONE model, which
+    # is exactly the non-independence this figure exists to expose.
+    ax.set_xlabel("sources agreeing on a finding")
     ax.set_ylabel("golden-match rate (%)")
     ax.set_ylim(0, 104)
     ax.set_yticks([0, 25, 50, 75, 100])
@@ -89,7 +91,7 @@ def fig3_support():
     """Two supporting panels, rendered as ONE two-column-spanning figure so the
     page cost is ~0.3pp instead of ~0.6pp for two separate floats.
 
-    (a) the accuracy/cost tradeoff: Agentless Pareto-dominates.
+    (a) the accuracy/call-budget tradeoff: Agentless Pareto-dominates.
     (b) where the cross-family signal lives: universal bugs, not conventions.
     """
     fig, (axa, axb) = plt.subplots(1, 2, figsize=(7.0, 2.05))
@@ -105,7 +107,7 @@ def fig3_support():
     for a, x, y, off in zip(arms, cost_tp, f1, offs):
         axa.annotate(a, (x, y), textcoords="offset points", xytext=off,
                      fontsize=7, fontweight="bold" if a == "Agentless" else "normal")
-    axa.annotate("cheapest AND best", xy=(0.34, 0.487), xytext=(0.62, 0.452),
+    axa.annotate("fewest calls AND best F1", xy=(0.34, 0.487), xytext=(0.62, 0.452),
                  fontsize=6.5, color="#B91C1C",
                  arrowprops=dict(arrowstyle="->", lw=0.7, color="#B91C1C"))
     axa.set_xlabel("LLM calls per confirmed true positive")
@@ -114,7 +116,9 @@ def fig3_support():
     axa.set_ylim(0.32, 0.54)
     axa.grid(color="#E5E7EB", linewidth=0.6)
     axa.set_axisbelow(True)
-    axa.set_title("(a) more agents cost more, review worse", fontsize=8, pad=4)
+    # "no better", not "worse": the trend is not monotonic (Hierarchical 0.378 >
+    # Generalists-3 0.357). The defensible claim is Agentless Pareto-dominance.
+    axa.set_title("(a) more agents use more calls, review no better", fontsize=8, pad=4)
 
     # --- (b) where the signal lives -----------------------------------------
     depths = np.array([1, 2, 3])
