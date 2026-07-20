@@ -149,14 +149,22 @@ of three runs.
 
 \begin{figure*}[t]
   \centering
-  % TODO: fig1_architectures.png currently shows THREE panels; extend it with the
-  % Generalists-3 rung before submission.
-  \includegraphics[width=\textwidth]{fig1_architectures.png}
-  \caption{The four-rung communication-topology ladder: Agentless (single pass,
-  no communication), Generalists-3 (three uncoordinated samples), Hierarchical
-  (coordinator-mediated, one-to-many), and Consensus (peer discussion,
-  many-to-many). Solid arrows are control/task flow; dashed arrows are peer
-  communication.}
+  % TODO before submission: the figure's "Verification" block still lists the
+  % deprecated metric set (Cross-ARCHITECTURE Agreement, Static Analysis
+  % Agreement, Later Fix Rate). The reported industrial metrics are cross-FAMILY
+  % corroboration depth, judge-genuine proxy precision, and pool-coverage proxy
+  % recall; static-analysis and later-fix were specified but not run.
+  \includegraphics[width=\textwidth]{fig1_architectures_week11.png}
+  \caption{The four-rung ladder. Each rung adds exactly one thing---compute,
+  then specialization, then communication---while the PR snapshot, model,
+  prompts, roles, and evaluation pipeline are held constant, so communication
+  topology is the only independent variable. Agentless reviews in a single pass;
+  Generalists-3 samples the same generalist three times and merges
+  deterministically without communication (the compute-matched control);
+  Hierarchical routes through a coordinator (one-to-many); Consensus adds peer
+  discussion and voting (many-to-many). The per-run call and message counts
+  beneath each rung are the coordination overhead quantified in
+  Table~\ref{tab:confirmatory}.}
   \label{fig:architectures}
 \end{figure*}
 
