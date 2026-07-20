@@ -50,50 +50,26 @@ Northeastern University, Vancouver, Canada}}
 
 % =============================================================================
 \begin{abstract}
-Large Language Models (LLMs) are increasingly used for automated code
-review, and recent multi-agent systems suggest that dividing work among
-specialized agents can improve reasoning on complex tasks. It remains
-unclear, however, whether the \emph{communication topology} among
-agents---not merely their presence, nor the extra compute they consume---
-affects review quality, cost, and efficiency. This work-in-progress paper
-asks how communication topology affects the effectiveness and efficiency of
-automated code review. We compare four approaches under identical
-conditions: an Agentless single-LLM baseline, a compute-matched
-Generalists-3 control (the same generalist sampled three times and merged),
-a Hierarchical Authority architecture, and a Decentralized Peer Consensus
-architecture; the Generalists-3 control separates ``more compute'' from
-``specialization,'' making our primary hypothesis testable. We have
-implemented a modular platform that reviews the same immutable pull-request
-snapshot with all four architectures through a shared import, review,
-validation, storage, and evaluation pipeline backed by a production LLM
-service, isolating topology as the only independent variable; the design,
-hypotheses, sample sizes, and analysis plan were pre-registered and prompts
-frozen before confirmatory data collection. Evaluation spans three
-complementary datasets: Qodo PR-Review-Bench (objective ground truth),
-SWE-PRBench (agreement with human reviewers), and an actively developed
-full-stack data portal used as an industrial case study, and reports both
-strict (file+line) and semantic (independent-judge) matching. The
-registered confirmatory campaign is complete: 99 Qodo and 50 SWE-PRBench
-PRs $\times$ four architectures $\times$ three runs, plus a pre-registered
-cross-family companion (Kimi K2.5, GLM~5). The primary specialization
-hypothesis is null---at matched compute, role specialists tie plain
-samples on recall ($p{=}0.73$)---and no multi-agent arm approaches the
-single-pass baseline on F1 (0.36--0.38 vs.\ 0.49, Holm $p{<}0.001$):
-extra homogeneous agents buy recall (0.63 vs.\ 0.50) but drown it in
-false positives at 3--9$\times$ the cost, and the self-consistency rescue
-our pilot suggested does not replicate. The verification axis is
-different: findings corroborated by ${\geq}2$ independent model families
-reach precision 0.72 vs.\ 0.54 single-arm at equal-or-higher F1, and
-findings all three families agree on are real 89\% of the time vs.\ 54\%
-for one model repeating itself across three runs (gap CI $[0.29, 0.41]$;
-judge-invariant, $\kappa{=}0.95$ across two independent pair judges). The industrial arm---30 real merged PRs
-from a production portal (627 reviews)---validates the cost/communication ladder and the
-more-agents-do-not-help verdict but bounds the verification result:
-cross-family agreement is rare on diffuse real findings and the genuineness
-judges collapse to $\kappa{=}0.03$, so the precision instrument does not
-transfer without a trustworthy correctness oracle. In
-multi-agent code review, diversity pays on the verification axis, not the
-generation axis.
+Large Language Models are increasingly used for automated code review, and
+multi-agent frameworks propose dividing the work among specialized agents. It
+remains unclear whether the \emph{communication topology} among agents---rather
+than their mere presence, or the extra compute they consume---improves review
+quality. We compare four architectures under identical conditions: an Agentless
+single-LLM baseline, a compute-matched Generalists-3 control that separates
+``more compute'' from ``specialization,'' a Hierarchical manager-plus-specialists
+design, and a Decentralized Peer Consensus design. Model, prompts, roles, and the
+PR snapshot are held fixed so that topology is the only independent variable, and
+the hypotheses and analysis plan were pre-registered. We report 1{,}188 reviews
+over 99 injected-defect PRs, 600 over 50 human-reviewed PRs, and 627 over 30 PRs
+from a live industrial portal. Topology adds no capability: specialization is
+null ($p{=}0.73$), no multi-agent arm approaches the single-pass baseline on F1
+(0.36--0.38 vs.\ 0.49, Holm $p{<}0.001$), and extra agents buy recall at
+3--9$\times$ the cost. Value appears instead on a \emph{verification} axis:
+findings three independent model families agree on are genuine 89\% of the time
+versus 54\% for one model repeating itself (judge-invariant,
+$\kappa{=}0.95$). On real unlabeled code this instrument fails---LLM genuineness
+judges disagree at $\kappa{=}0.03$. Diversity pays on the verification axis, not
+the generation axis.
 \end{abstract}
 
 \begin{IEEEkeywords}
