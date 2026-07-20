@@ -30,7 +30,7 @@
 
 \begin{document}
 
-\title{Evaluating Multi-Agent Communication Topologies\\
+\title{Evaluating Multi-Agent Review Workflows\\
 for Automated Code Review: A Pre-Registered Study}
 
 \author{\IEEEauthorblockN{En-Ping Su, Tong Wu, Shiting Huang, Mengshan Li}
@@ -132,8 +132,9 @@ LLM systems fail---coordination overhead, cascading errors, weak
 verification~\cite{whyfail}. Concurrent 2026 results point the same way: agent
 teams can hold individual experts back~\cite{pappu}, and mixing different models
 does not beat the best single model on quality~\cite{selfmoa}. Our contribution
-is to isolate \emph{topology} under a compute-matched control, and to show where
-model diversity does pay.
+is a controlled experimental ladder that separates the effects of additional
+sampling, role specialization, and peer communication through adjacent
+contrasts, and shows where model diversity does pay.
 
 \textbf{Verification and LLM judges.} LLM judges scale
 evaluation~\cite{llmjudge}, verifier-based selection converts extra samples into
@@ -234,7 +235,15 @@ on per-PR differences, with seeded percentile-bootstrap CIs over those
 differences and Holm--Bonferroni correction \emph{within} each hypothesis family
 (families are not pooled). Cliff's $\delta$ is an unpaired dominance measure over
 the two arms' per-PR distributions, so it complements rather than matches the
-paired test: we read significance from Wilcoxon and magnitude from $\delta$. Every raw output and judge score is
+paired test: we read significance from Wilcoxon and magnitude from $\delta$. We
+retain $\delta$ rather than a paired rank-biserial correlation because it answers
+the deployment-relevant question directly---across PRs, how often does one arm
+dominate the other---and because it is robust to the per-PR averaging over three
+runs. \emph{Deviation:} the registration specified ``Cliff's $\delta$ (paired)'';
+the implementation computes the standard unpaired dominance form. Since the
+inferential claims rest on the paired Wilcoxon tests and their bootstrap CIs, and
+$\delta$ is reported only as a magnitude, this does not affect any registered
+conclusion, but we report the discrepancy rather than reconcile it silently. Every raw output and judge score is
 persisted, so all statistics replay deterministically with zero new LLM calls.
 
 % =============================================================================
@@ -300,7 +309,7 @@ $k{=}3$ fails for every arm. A model that agrees with itself is mostly repeating
 its confident errors---which motivates the next section.
 
 \begin{table}[t]
-\caption{E1 (Qodo, 99 PRs): review quality and what it costs. Agentless is
+\caption{E1 (Qodo, 99 PRs): review quality and inference overhead. Agentless is
 precision- and F1-dominant; extra agents buy recall at 3--9$\times$ the calls.
 FDR $=1-$precision; Cost/TP $=$ LLM calls per confirmed true positive.}
 \label{tab:confirmatory}
@@ -382,9 +391,10 @@ cheapest arm (0.34 LLM calls per confirmed true positive) and the most accurate
 (semantic F1 0.487), while Consensus costs $5\times$ more for a worse review.
 \textbf{(b)} Where cross-family agreement carries signal: universal functional
 bugs are recovered far more often at every depth than project-specific rule
-violations, which a reviewer without repository context cannot know. Together
-they explain the headline result---extra agents add cost and surface findings in
-exactly the class where models disagree.}
+violations, which a reviewer without repository context cannot know. Together,
+the panels show that homogeneous multi-agent workflows increase inference cost
+without improving F1, while cross-family corroboration is most informative for
+universal functional defects.}
 \label{fig:support}
 \end{figure*}
 
@@ -470,11 +480,12 @@ relative comparisons are unaffected, because incompleteness applies to every arm
 identically. The pair judge is validated instrument-side ($\kappa{=}0.95$) but its
 human validation is pending, so corroboration numbers remain instrument-relative.
 
-\textbf{Internal.} Differences could stem from confounds other than topology. We
-hold model, prompts, roles, and sampling budget fixed and review a byte-identical
-snapshot per PR across all four arms; the compute-matched Generalists-3 control
-further separates structure from raw sampling, and the evaluation engine replays
-deterministically from stored artifacts.
+\textbf{Internal.} Differences could stem from confounds other than the
+manipulated capability. We hold the model, prompt templates, evaluation pipeline,
+and a byte-identical PR snapshot fixed while manipulating sampling budget, role
+structure, and communication according to the experimental ladder; the
+compute-matched Generalists-3 control separates specialization from raw sampling,
+and the evaluation engine replays deterministically from stored artifacts.
 
 \textbf{External.} Qodo is a synthetic-injection benchmark: planted defects are
 cleaner and more localizable than natural review targets, so absolute scores sit
