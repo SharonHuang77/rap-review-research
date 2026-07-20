@@ -585,6 +585,30 @@ Consensus      & 0.322 & 0.536 & 0.369 & 0.678 \\
 \end{tabular}
 \end{table}
 
+\subsection{RQ3: the topology effect does not grow with PR complexity}
+\label{sec:rq3}
+The registered stratifier for RQ3 was PR \emph{type} (frontend-only,
+backend-only, database-only, cross-component), which requires the diff; the
+confirmatory runs did not persist \texttt{rawDiff}, so we substitute the
+closest available proxy---the number of distinct files an instance's injected
+defects span (median 3, range 1--10)---and label this analysis
+\textbf{exploratory} rather than confirmatory. For each registered contrast we
+take the per-PR paired difference and test its interaction with complexity both
+continuously (Spearman $\rho$) and by median split (Cliff's $\delta$ between
+strata).
+
+\textbf{No interaction survives on any contrast} (all Holm $p \ge 0.42$,
+$|\delta| \le 0.12$, $|\rho| \le 0.17$). Complexity degrades every arm by a
+similar margin---semantic recall falls from 0.52 to 0.46 (Agentless), 0.65 to
+0.56 (Generalists-3), 0.65 to 0.56 (Hierarchical), and 0.57 to 0.45
+(Consensus)---and the arm ordering is stable across strata, so no topology
+rescues complex PRs. The one directional hint runs \emph{against} the
+registered prediction: H-communication expected Consensus to beat Hierarchical
+especially on cross-component PRs, yet the paired recall difference is 0.000 on
+simple PRs and $-0.119$ on complex ones (Holm $p{=}1.0$)---a non-significant
+counter-directional trend, not a finding. H-complexity is therefore
+\textbf{not supported}.
+
 \subsection{H-verify: the pilot's self-consistency rescue does not
 replicate}
 \label{sec:hverify}
@@ -818,10 +842,11 @@ paired non-parametric tests, effect sizes with CIs, and Holm correction
 within families; the full secondary family will be jointly corrected once
 every registered secondary is computed. The finer stratifications
 (defect-type, false-positive anatomy, the completeness magnitudes) are
-exploratory and labeled as such. Two registered pieces remain pending:
-the RQ3 complexity-interaction analysis, the Sonnet~4.5 robustness arm at
-confirmatory scale; the industrial-portal arm is now reported
-(Section~\ref{sec:industrial}).
+exploratory and labeled as such. One registered piece remains pending:
+the Sonnet~4.5 robustness arm at confirmatory scale. The industrial-portal arm
+(Section~\ref{sec:industrial}) and the RQ3 complexity interaction
+(Section~\ref{sec:rq3}, exploratory owing to the stratifier deviation) are now
+reported.
 
 % =============================================================================
 \section{Conclusion}
@@ -853,8 +878,7 @@ The practical guidance is direct: do not add homogeneous agents for
 quality; ship cross-family agreement as a cheap, model-agnostic trust
 signal on top of any single reviewer. Future work: human $\kappa$
 validation of the pair judge, fixed-definition human adjudication of
-benchmark completeness, the complexity
-interaction, and replication on execution-grounded review benchmarks such
+benchmark completeness, and replication on execution-grounded review benchmarks such
 as c-CRAB~\cite{crab}.
 
 \section*{Acknowledgment}
