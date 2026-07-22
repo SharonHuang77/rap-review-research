@@ -232,3 +232,165 @@ export function median(xs: readonly number[]): number {
   const mid = Math.floor(s.length / 2);
   return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
 }
+
+// --- Equivalence / power (for the primary null, pre-registration §3.2) --------
+
+/**
+ * Inverse standard-normal CDF (probit). Acklam's rational approximation refined
+ * by one Halley step against `normalCdf`; absolute accuracy is bounded by
+ * `normalCdf`'s erf approximation (~1e-7), ample for power/CI use here. Domain
+ * (0, 1); returns ∓∞ at the boundaries.
+ */
+export function normalQuantile(p: number): number {
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  const a = [-3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2, -3.066479806614716e1, 2.506628277459239];
+  const b = [-5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
+  const c = [-7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+  const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+  const pLow = 0.02425;
+  const pHigh = 1 - pLow;
+  let x: number;
+  if (p < pLow) {
+    const q = Math.sqrt(-2 * Math.log(p));
+    x = (((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1);
+  } else if (p <= pHigh) {
+    const q = p - 0.5;
+    const r = q * q;
+    x = ((((((a[0]! * r + a[1]!) * r + a[2]!) * r + a[3]!) * r + a[4]!) * r + a[5]!) * q) /
+      (((((b[0]! * r + b[1]!) * r + b[2]!) * r + b[3]!) * r + b[4]!) * r + 1);
+  } else {
+    const q = Math.sqrt(-2 * Math.log(1 - p));
+    x = -(((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+      ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1);
+  }
+  const e = normalCdf(x) - p; // Halley refinement
+  const u = e * Math.sqrt(2 * Math.PI) * Math.exp((x * x) / 2);
+  return x - u / (1 + (x * u) / 2);
+}
+
+/**
+ * Minimum detectable effect for a two-sided paired test at the given N, paired
+ * SD of the differences, α, and power (defaults α=0.05, power=0.80). Returns the
+ * MDE in the metric's own units and its standardized form dz = MDE / SD.
+ */
+export function mdePaired(opts: {
+  n: number;
+  sdDiff: number;
+  alpha?: number;
+  power?: number;
+  sided?: number;
+}): { mde: number; dz: number } {
+  const alpha = opts.alpha ?? 0.05;
+  const power = opts.power ?? 0.8;
+  const sided = opts.sided ?? 2;
+  const dz = (normalQuantile(1 - alpha / sided) + normalQuantile(power)) / Math.sqrt(opts.n);
+  return { mde: dz * opts.sdDiff, dz };
+}
+
+export interface TostResult {
+  readonly n: number;
+  readonly mean: number;
+  readonly sd: number;
+  readonly se: number;
+  readonly eps: number;
+  readonly zLower: number;
+  readonly pLower: number;
+  readonly zUpper: number;
+  readonly pUpper: number;
+  /** TOST p = max of the two one-sided p-values; equivalent ⟺ pTost < α. */
+  readonly pTost: number;
+  readonly equivalent: boolean;
+  /** (1 − 2α) confidence interval on the mean difference. */
+  readonly ci: CI;
+}
+
+/**
+ * Two One-Sided Tests (TOST) for paired equivalence within ±eps, normal
+ * approximation (df large — consistent with the Wilcoxon normal approximation
+ * used above). Equivalent ⟺ both one-sided tests reject at α ⟺ the (1 − 2α) CI
+ * of the mean difference lies strictly inside (−eps, eps). A wide CI that
+ * overruns the band yields `equivalent: false` — an honest "not shown
+ * equivalent", not "different".
+ */
+export function tostPaired(
+  differences: readonly number[],
+  eps: number,
+  opts: { alpha?: number } = {},
+): TostResult {
+  const alpha = opts.alpha ?? 0.05;
+  const n = differences.length;
+  const m = mean(differences);
+  let varSum = 0;
+  for (const d of differences) varSum += (d - m) ** 2;
+  const sd = n > 1 ? Math.sqrt(varSum / (n - 1)) : 0;
+  const se = n > 0 ? sd / Math.sqrt(n) : 0;
+  // upper test H0: μ ≥ eps  → reject (μ < eps) when zUpper is very negative
+  const zUpper = se > 0 ? (m - eps) / se : m - eps < 0 ? -Infinity : Infinity;
+  const pUpper = normalCdf(zUpper);
+  // lower test H0: μ ≤ −eps → reject (μ > −eps) when zLower is very positive
+  const zLower = se > 0 ? (m + eps) / se : m + eps > 0 ? Infinity : -Infinity;
+  const pLower = 1 - normalCdf(zLower);
+  const pTost = Math.max(pLower, pUpper);
+  const half = normalQuantile(1 - alpha) * se;
+  return {
+    n, mean: m, sd, se, eps, zLower, pLower, zUpper, pUpper, pTost,
+    equivalent: pTost < alpha,
+    ci: { point: m, lo: m - half, hi: m + half },
+  };
+}
+
+// --- Inter-rater agreement (κ + paradox-robust companions, §5.1 / §6) ---------
+
+function assertSameLength(a: readonly boolean[], b: readonly boolean[]): void {
+  if (a.length !== b.length) throw new Error(`rater vectors differ in length: ${a.length} vs ${b.length}`);
+  if (a.length === 0) throw new Error("empty rater vectors");
+}
+
+function marginals(a: readonly boolean[], b: readonly boolean[]): { po: number; pA: number; pB: number } {
+  const n = a.length;
+  let agree = 0;
+  let aYes = 0;
+  let bYes = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (a[i] === b[i]) agree += 1;
+    if (a[i]) aYes += 1;
+    if (b[i]) bYes += 1;
+  }
+  return { po: agree / n, pA: aYes / n, pB: bYes / n };
+}
+
+/** Observed agreement pₒ: fraction of items both raters label identically. */
+export function rawAgreement(a: readonly boolean[], b: readonly boolean[]): number {
+  assertSameLength(a, b);
+  return marginals(a, b).po;
+}
+
+/** Cohen's κ for two binary raters. */
+export function cohenKappa(a: readonly boolean[], b: readonly boolean[]): number {
+  assertSameLength(a, b);
+  const { po, pA, pB } = marginals(a, b);
+  const pe = pA * pB + (1 - pA) * (1 - pB);
+  return pe < 1 ? (po - pe) / (1 - pe) : 1;
+}
+
+/**
+ * Gwet's AC1 for two binary raters — chance agreement pe = 2·π·(1−π) with π the
+ * mean marginal "positive" rate. Unlike κ it does not collapse toward 0 when one
+ * class dominates (the base-rate / "kappa paradox"), so it is the right companion
+ * to κ when a rater is near-constant (e.g. a rubber-stamp genuineness judge).
+ */
+export function gwetAC1(a: readonly boolean[], b: readonly boolean[]): number {
+  assertSameLength(a, b);
+  const { po, pA, pB } = marginals(a, b);
+  const pi = (pA + pB) / 2;
+  const pe = 2 * pi * (1 - pi);
+  return pe < 1 ? (po - pe) / (1 - pe) : 1;
+}
+
+/** Prevalence-adjusted bias-adjusted κ (binary): PABAK = 2·pₒ − 1. */
+export function pabak(a: readonly boolean[], b: readonly boolean[]): number {
+  assertSameLength(a, b);
+  return 2 * rawAgreement(a, b) - 1;
+}
