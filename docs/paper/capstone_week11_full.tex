@@ -280,7 +280,14 @@ H-hetero-prec.\  & Cross-family agreement lifts precision & \textbf{Confirmed} (
 Table~\ref{tab:confirmatory} gives per-arm means over the 99 Qodo PRs together
 with the cost of obtaining them. The \textbf{primary hypothesis is null}: at
 matched compute, Hierarchical ties Generalists-3 on recall (0.624 vs.\ 0.626;
-$p{=}0.73$, $\delta{=}{-}0.005$) at comparable precision. Role specialization
+$p{=}0.73$, $\delta{=}{-}0.005$) at comparable precision. Beyond the
+non-significant contrast, the recall difference is statistically
+\emph{equivalent} within the pre-registered $\pm6$-point SESOI (two one-sided
+tests, $p{<}0.001$; $90\%$ CI $[-0.025,0.019]$) and remains so at $\pm5$ points;
+at $N{=}99$ the paired design detects $3.8$ recall points ($d_z{=}0.28$),
+matching the registered power calculation, so the specialization effect is
+bounded \emph{below} practical significance rather than merely undetected. Role
+specialization
 contributes nothing beyond sampling---consistent with concurrent evidence that
 teams average rather than exploit expertise~\cite{pappu}. Nor does compute
 convert into quality: Agentless dominates every multi-agent arm on semantic F1
@@ -417,7 +424,12 @@ The disagreement is definitional, not a capability gap: DeepSeek is a strict
 under-caller that rejects roughly 29\% of \emph{known injected defects}---largely
 rule and style violations---while the lenient judges accept warranted concerns.
 Critically, inter-judge agreement here is poor ($\kappa{=}0.23$--$0.58$) against
-the pair judge's $\kappa{=}0.95$ on same-issue matching. Two questions that look
+the pair judge's $\kappa{=}0.95$ on same-issue matching. This gap is not a
+base-rate artifact of $\kappa$: under the prevalence-robust Gwet's AC1 and PABAK
+the disagreement between the strict judge and the two lenient ones is if
+anything sharper (AC1 $0.11$--$0.21$), while the two lenient judges agree
+substantially (raw $84\%$, AC1 $0.74$); the same-issue matcher, by contrast,
+stays high under every coefficient (AC1 $0.96$, PABAK $0.96$). Two questions that look
 alike behave differently: whether two findings describe the same issue is
 objective and stable across judges; whether a finding is a real bug is not settled by
 an LLM judge of any size.
