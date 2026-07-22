@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { normalQuantile, normalCdf, mdePaired, tostPaired } from "../../src/analysis/stats.ts";
+import {
+  normalQuantile,
+  normalCdf,
+  mdePaired,
+  tostPaired,
+  matchedPairsRankBiserial,
+} from "../../src/analysis/stats.ts";
 
 const near = (actual: number, expected: number, tol: number, msg?: string): void =>
   assert.ok(Math.abs(actual - expected) <= tol, `${msg ?? ""} expected ${expected}±${tol}, got ${actual}`);
@@ -55,4 +61,12 @@ test("tostPaired: a mean beyond the bound is not equivalent even if precise", ()
   const diffs = Array.from({ length: 50 }, () => 0.1); // mean 0.1 > eps 0.06
   const r = tostPaired(diffs, 0.06, { alpha: 0.05 });
   assert.equal(r.equivalent, false);
+});
+
+test("matchedPairsRankBiserial: the registered paired effect size spans [-1, 1]", () => {
+  assert.equal(matchedPairsRankBiserial([0.1, 0.2, 0.3]), 1); // all favorable
+  assert.equal(matchedPairsRankBiserial([-0.1, -0.2, -0.3]), -1); // all unfavorable
+  near(matchedPairsRankBiserial([1, -1, 2, -2]), 0, 1e-9, "symmetric → 0");
+  assert.equal(matchedPairsRankBiserial([]), 0); // empty → 0
+  assert.equal(matchedPairsRankBiserial([0, 0]), 0); // all-zero diffs → 0
 });

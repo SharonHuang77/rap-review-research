@@ -72,6 +72,18 @@ export function wilcoxonSignedRank(differences: readonly number[]): WilcoxonResu
   return { n, wPlus, z, p };
 }
 
+/**
+ * Matched-pairs rank-biserial correlation — the PAIRED effect size the
+ * pre-registration named as "Cliff's δ (paired)". Derived from the signed-rank
+ * statistic: r = (W⁺ − W⁻)/(W⁺ + W⁻) = 2·W⁺/T − 1, T = n(n+1)/2 over the nonzero
+ * differences. Range [−1, 1]; complements the unpaired `cliffsDelta`.
+ */
+export function matchedPairsRankBiserial(differences: readonly number[]): number {
+  const { n, wPlus } = wilcoxonSignedRank(differences);
+  if (n === 0) return 0;
+  return (2 * wPlus) / ((n * (n + 1)) / 2) - 1;
+}
+
 /** Cliff's delta: (#(a>b) − #(a<b)) / (|a|·|b|). Range [−1, 1]; dominance of a over b. */
 export function cliffsDelta(a: readonly number[], b: readonly number[]): number {
   if (a.length === 0 || b.length === 0) return 0;

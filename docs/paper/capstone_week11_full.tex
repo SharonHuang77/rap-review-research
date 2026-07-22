@@ -174,7 +174,11 @@ fixed across arms, but sampling budget, roles, and message flow vary by
 construction---that is what the ladder manipulates. Inference is therefore not
 constant across all four arms, so we read \emph{adjacent} contrasts rather than
 treating topology as a single isolated variable. Each (PR, arm) value is the mean
-of three runs.
+of three runs; run-to-run noise is small (mean within-PR SD of semantic F1
+${\approx}0.01$ for the deterministic arms and ${\approx}0.05$ for the sampled
+ones), and the headline ordering---Agentless top-F1 and the H2 recall tie---holds
+in each of the three runs individually, so the conclusions are not an artifact of
+averaging.
 
 \begin{figure*}[t]
   \centering
@@ -245,7 +249,10 @@ retain $\delta$ rather than a paired rank-biserial correlation because it answer
 the deployment-relevant question directly---across PRs, how often does one arm
 dominate the other---and because it is robust to the per-PR averaging over three
 runs. \emph{Deviation:} the registration specified ``Cliff's $\delta$ (paired)'';
-the implementation computes the standard unpaired dominance form. Since the
+the implementation computes the standard unpaired dominance form. The registered
+paired form (matched-pairs rank-biserial) nonetheless agrees on the primary
+contrast---$r{=}{-}0.05$ versus the unpaired $\delta{=}{-}0.005$, both
+negligible---so the choice is immaterial to the null. Since the
 inferential claims rest on the paired Wilcoxon tests and their bootstrap CIs, and
 $\delta$ is reported only as a magnitude, this does not affect any registered
 conclusion, but we report the discrepancy rather than reconcile it silently. Every raw output and judge score is
