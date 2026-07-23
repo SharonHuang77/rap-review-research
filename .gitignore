@@ -17,3 +17,9 @@ dist/
 # Phase 2 unattended-driver run artifacts (runs/cache/markers/logs)
 phase2-results/
 phase2-results-selftest/
+
+# Embargoed experiment data (OSF registration 2z4vj) — never commit to the public repo
+grounding-pilot/
+hetero-confirmatory/
+capability-arm/
+crab-arm/

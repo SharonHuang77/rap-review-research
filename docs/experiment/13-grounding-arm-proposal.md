@@ -299,3 +299,34 @@ that ceilings at 40%) but this **map of which lever each defect class requires.*
 - Two follow-ons the pilot motivates: cross-family **union×depth by defect type at
   scale** (the confirmed 80/45 + 28/51/89 numbers, powered), and the func **hard
   core under execution grounding** (c-CRAB direction).
+
+## 13. Update — confirmatory, lint, and structural-context results (2026-07-23)
+
+Three follow-up studies revise the §10–§11 pilot conclusions. Sources:
+`docs/experiment/14` §10 (capability confirmatory), `scripts/lint-baseline.ts`,
+`docs/experiment/16` (CRAB structural grounding).
+
+- **§11 "capability Δ≈0 on rules" does NOT generalize.** The registered capability
+  arm (doc-14 §10; Sonnet vs Haiku, disjoint 80-PR set) found capability lifts
+  **both** defect types modestly (func +3.4pp, rule +5.2pp; DiD = −1.8pp, n.s.).
+  The pilot's functional-specific interaction holds only on the 2 pilot repos
+  (DiD +10.8pp) and vanishes elsewhere → **repo-moderated, not universal**. Revise
+  the §11 lever map: capability = a **broad modest lift**, not a functional-only
+  one; conventions stay hardest in absolute terms (rule recall still ~37%).
+- **"conventions → deterministic lint" refines to a within-conventions split.**
+  A non-circular lint baseline (faithful re-implementations of the repos' published
+  ESLint/editorconfig/analyzer rules, applied blind to the full diff; pilot repos,
+  50 rule-GT) gives: **mechanical/syntactic** conventions → deterministic checker
+  beats the LLM (async-suffix **43% vs 7%**, strict-equality 100% vs 0%, single-
+  quote 50% vs 0%); **framework/policy/conceptual** conventions (xUnit, Tailwind
+  order, TS-strict, sealed, curly-braces, primary-ctor) → the LLM wins (≈100%),
+  a line-local linter can't reach them. They are **complementary**: lint 30% / LLM
+  32% / **hybrid(lint∪LLM) 50%**. So the lever is "**mechanical→lint,
+  conceptual→LLM**," not "conventions→lint" wholesale.
+- **Static grounding fails regardless of content quality.** Beyond the ~5pp
+  hand-written-convention lever here, feeding **real whole files + 1-hop
+  dependencies** (doc-16, CRAB) also does **not** lift recall (semantic 37%→35%,
+  n.s.), though it changes 45/50 outputs. Passive context injection is not the
+  lever; **agency** (adaptive retrieval / execution) is (SWE-Review; *Beyond Code
+  Snippets*). The "grounding" row of the §11 map should read **grounding via an
+  agentic reviewer with repo tools + execution**, not static prepend.

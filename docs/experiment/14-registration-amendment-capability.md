@@ -146,3 +146,55 @@ node scripts/grounding-judge-eval.ts       # per repo, over the 80-PR remainder
 ```
 (The 80-PR remainder is selected by `PILOT_IDS`/exclusion list rather than the
 pilot subset; the runner already filters by instance id.)
+
+## 10. Confirmatory results (collected 2026-07-23, AFTER the OSF amendment timestamp)
+
+Sonnet 4.5 agentless-ungrounded generated on the 80-PR remainder via
+`grounding-judge-eval.ts` (GROUNDED=0, patched to run all repos ungrounded);
+238/240 runs (dify-pr-4, dify-pr-12 lost one run each to post-retry infra
+failure — the pre-registered exclusion; all 80 PRs covered). Paired vs the frozen
+Haiku agentless (`phase2-results/qodo-all-runs.json`). Analysis:
+`scripts/capability-analysis.ts` (zero LLM; replays runs + judge caches).
+
+**The pre-registered primary was NOT supported.** Δ = Sonnet − Haiku:
+
+| hypothesis | pre-registered | result | verdict |
+|---|---|---|---|
+| **H-cap-interaction** DiD=Δfunc−Δrule>0 | pilot ≈ +10pp | **DiD = −1.8pp**, 95% CI[−8.6, +5.5], p=0.68 | ✗ not supported (point estimate slightly favors rule) |
+| **H-cap-func** Δfunc>0 | +10pp | +4.4pp (paired), one-sided p=0.032 raw, **Holm p=0.097** | ~ marginal, not significant after family correction |
+| **H-cap-rule** equivalence \|Δrule\|≤6pp | Δ≈0 | Δrule=**+6.2pp**, TOST p=0.52 | ✗ not equivalent (rule rose) |
+| precision guardrail | not collapse | Sonnet 63% vs Haiku 58% | ✓ clean (gain ≠ verbosity) |
+
+Per-type recall (micro): func 70%→74% (+3.4pp), rule 32%→37% (+5.2pp). Capability
+gives a **uniform, modest lift across both defect types** — the "uniformly better
+model" case DiD is built to read as null, and it read null. The pilot's headline
+("capability buys functional, ≈0 on rules") did **not** replicate on the disjoint,
+multi-repo confirmatory set. The equivalence test is **underpowered**: realized
+paired SD ≈ 0.35 (vs the registered 0.13 prior) → realized MDE ±10.9pp ≫ the ±6pp
+SESOI, so ±6pp equivalence is not resolvable at N=80 (logged per §4).
+
+### 10.1 Exploratory follow-ups (zero-cost re-analyses; NOT confirmatory)
+
+- **Repo decomposition** — the interaction is real but **repo-moderated**: on the
+  2 pilot repos (aspnetcore+Ghost, N=19) DiD = **+10.8pp** (func +10.1, rule −0.7,
+  reproducing the pilot); on the other 6 repos it vanishes → the null is explained
+  as a convention-density-specific effect, not noise. (`capability-analysis.ts`
+  with the pilot Sonnet-ungrounded files as the Sonnet slot.)
+- **τ robustness** — the null is invariant to matching: identical for
+  τ∈{0.5,0.6,0.7,0.8} (judge scores are polarized); strict file+line DiD = +0.1pp.
+- **Difficulty stratification** (`capability-stratify.ts`) — Sonnet recovers **47%**
+  of the functional bugs Haiku missed and **24%** of the rule violations Haiku
+  missed (helps both → DiD≈0). A hard core neither model finds at any run:
+  **15%** of functional bugs, **51%** of rule violations — capability-invariant.
+- **Single strong model vs cross-family union** (`single-vs-union.ts`, same 3-call
+  budget) — union recall: homo-Haiku-3run **52%** < homo-Sonnet-3run **62%** <
+  hetero-3-family **65%** (Haiku+Kimi+GLM). A stronger single model **narrows but
+  does not close** the cross-family gap, and hetero also wins on rule recall
+  (49 vs 44) and precision (55 vs 53). Capability does not substitute for
+  cross-family verification.
+
+**Takeaway for the paper.** Capability/scale is a broad modest lift that recovers
+~half the residual on both defect types but cannot touch the convention hard core;
+at fixed budget, cross-family verification (error diversity) still beats a stronger
+single model. Report H-cap-interaction as a **pre-registered null** — the value of
+having registered before collecting.

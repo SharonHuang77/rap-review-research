@@ -56,8 +56,15 @@ if (LLM_CONFIG.provider !== "bedrock") {
   process.exit(1);
 }
 
+// GROUNDED=0 generates the UNGROUNDED baseline (base PromptBuilder) — needed when
+// the SUT model has no cached ungrounded runs (e.g. the Sonnet capability probe).
+// Ungrounded injects NO conventions, so GROUNDING_REPO is optional and instances
+// are NOT repo-filtered: the capability confirmatory (doc 14) spans every Qodo
+// repo, not just the two convention-authored pilot repos. The base PromptBuilder
+// here is byte-identical to the frozen agentless-ungrounded generation config.
+const GROUNDED = (process.env.GROUNDED ?? "1") !== "0";
 const REPO = process.env.GROUNDING_REPO;
-if (!REPO || !PROJECT_CONVENTIONS[REPO]) {
+if (GROUNDED && (!REPO || !PROJECT_CONVENTIONS[REPO])) {
   console.error(`GROUNDING_REPO must be one of: ${Object.keys(PROJECT_CONVENTIONS).join(", ")}`);
   process.exit(1);
 }
@@ -65,9 +72,6 @@ const DATA_DIR = resolve(process.env.BENCHMARK_DATA_DIR ?? "data/benchmark");
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
 const RUNS_PER_INSTANCE = Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 3));
-// GROUNDED=0 generates the UNGROUNDED baseline (base PromptBuilder) — needed when
-// the SUT model has no cached ungrounded runs (e.g. the Sonnet capability probe).
-const GROUNDED = (process.env.GROUNDED ?? "1") !== "0";
 const ARCHS: ReviewArchitecture[] = (process.env.ARMS ?? "agentless,hierarchical")
   .split(",").map((s) => s.trim()).filter(Boolean) as ReviewArchitecture[];
 
@@ -87,13 +91,15 @@ if (!existsSync(qodoPath)) {
   process.exit(1);
 }
 const full = loader.loadQodo(JSON.parse(readFileSync(qodoPath, "utf8")));
-const instances = full.instances.filter((i) => PILOT.has(i.instanceId) && repoOfInstance(i.instanceId) === REPO);
+const instances = full.instances.filter(
+  (i) => PILOT.has(i.instanceId) && (!GROUNDED || repoOfInstance(i.instanceId) === REPO),
+);
 if (instances.length === 0) {
-  console.error(`No pilot instances for repo=${REPO} in ${qodoPath}. Found ids e.g. ${full.instances.slice(0, 3).map((i) => i.instanceId).join(", ")}`);
+  console.error(`No pilot instances for ${GROUNDED ? `repo=${REPO}` : "the given PILOT_IDS"} in ${qodoPath}. Found ids e.g. ${full.instances.slice(0, 3).map((i) => i.instanceId).join(", ")}`);
   process.exit(1);
 }
 const dataset: BenchmarkDataset = { ...full, instances };
-console.log(`${GROUNDED ? "GROUNDED" : "UNGROUNDED"} generation — repo=${REPO}, ${instances.length} pilot PRs, arms=${ARCHS.join("+")}, ${RUNS_PER_INSTANCE} run(s)/instance`);
+console.log(`${GROUNDED ? "GROUNDED" : "UNGROUNDED"} generation — repo=${REPO ?? "(all)"}, ${instances.length} PRs, arms=${ARCHS.join("+")}, ${RUNS_PER_INSTANCE} run(s)/instance`);
 console.log(`  model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}; conventions=${GROUNDED ? PROJECT_CONVENTIONS[REPO]!.length : 0}`);
 
 // Fixed-repo grounding: every instance in this pass is the same repo. GROUNDED=0
@@ -125,7 +131,7 @@ const runner = new CampaignRunner({
 });
 
 const report = await runner.run([dataset], {
-  campaignId: `grounding-${REPO}`,
+  campaignId: `grounding-${REPO ?? "ungrounded-all"}`,
   architectures: ARCHS,
   runsPerInstance: RUNS_PER_INSTANCE,
   modelVersion: LLM_CONFIG.defaultModel,
@@ -169,7 +175,7 @@ if (process.env.CACHE_OUT) {
 const semantic = new GroundTruthEvaluator({
   matcher: new IssueMatcher({ semanticMatcher: new CachedSemanticMatcher(cache), semanticThreshold: TAU }),
 });
-console.log(`\n=== grounded ${REPO} per-arm macro (semantic τ=${TAU}) ===`);
+console.log(`\n=== ${GROUNDED ? "grounded" : "ungrounded"} ${REPO ?? "(all repos)"} per-arm macro (semantic τ=${TAU}) ===`);
 for (const arch of ARCHS) {
   const rs = runs.filter((r) => r.architecture === arch).map((r) => semantic.evaluate(r));
   const n = rs.length || 1;
