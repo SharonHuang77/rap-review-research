@@ -25,12 +25,18 @@ import { repoOfInstance } from "../src/grounding/project-conventions.ts";
 const P2 = resolve(process.env.UNGROUNDED_RUNS ?? join(import.meta.dirname, "..", "phase2-results", "qodo-all-runs.json"));
 const P2CACHE = resolve(process.env.UNGROUNDED_CACHE ?? join(import.meta.dirname, "..", "phase2-results", "qodo-all-cache.json"));
 const GDIR = resolve(process.env.GROUNDED_DIR ?? join(import.meta.dirname, "..", "grounding-pilot"));
+const GPREFIX = process.env.GROUNDED_PREFIX ?? "";
+// Per-repo ungrounded (a model without a single cached baseline file, e.g. the
+// Sonnet probe): set UNGROUNDED_DIR + UNGROUNDED_PREFIX. Else the single
+// confirmatory Haiku file above is used for all repos.
+const UDIR = process.env.UNGROUNDED_DIR ? resolve(process.env.UNGROUNDED_DIR) : undefined;
+const UPREFIX = process.env.UNGROUNDED_PREFIX ?? "";
 const REPOS = (process.env.REPOS ?? "Ghost,aspnetcore").split(",").map((s) => s.trim());
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const BOOT = Math.max(200, Number(process.env.BOOT_ITERS ?? 2000));
 const SEED = Number(process.env.SEED ?? 20260722);
-const ARMS = ["agentless", "hierarchical"] as const;
-type Arm = (typeof ARMS)[number];
+const ARMS = (process.env.ARMS ?? "agentless,hierarchical").split(",").map((s) => s.trim()).filter(Boolean);
+type Arm = string;
 type Cat = "rule" | "func";
 
 const normPath = (p: string): string => p.trim().replace(/^\.\//, "");
@@ -41,20 +47,34 @@ function mulberry32(seed: number): () => number {
   return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-// ungrounded: the cached confirmatory runs + cache
-const ungRuns = (JSON.parse(readFileSync(P2, "utf8")) as BenchmarkRun[]);
-const ungCache = SemanticScoreCache.fromJSON(JSON.parse(readFileSync(P2CACHE, "utf8")) as Record<string, number>);
-// grounded: per-repo pilot runs + merged cache
-const gRuns: BenchmarkRun[] = [];
-const gCacheObj: Record<string, number> = {};
-for (const repo of REPOS) {
-  const rf = join(GDIR, `${repo}-runs.json`);
-  const cf = join(GDIR, `${repo}-cache.json`);
-  if (!existsSync(rf)) { console.error(`missing grounded runs: ${rf}`); process.exit(1); }
-  gRuns.push(...(JSON.parse(readFileSync(rf, "utf8")) as BenchmarkRun[]));
-  if (existsSync(cf)) Object.assign(gCacheObj, JSON.parse(readFileSync(cf, "utf8")) as Record<string, number>);
+function loadPerRepo(dir: string, prefix: string): { runs: BenchmarkRun[]; cacheObj: Record<string, number> } {
+  const runs: BenchmarkRun[] = [];
+  const cacheObj: Record<string, number> = {};
+  for (const repo of REPOS) {
+    const rf = join(dir, `${prefix}${repo}-runs.json`);
+    const cf = join(dir, `${prefix}${repo}-cache.json`);
+    if (!existsSync(rf)) { console.error(`missing runs: ${rf}`); process.exit(1); }
+    runs.push(...(JSON.parse(readFileSync(rf, "utf8")) as BenchmarkRun[]));
+    if (existsSync(cf)) Object.assign(cacheObj, JSON.parse(readFileSync(cf, "utf8")) as Record<string, number>);
+  }
+  return { runs, cacheObj };
 }
-const gCache = SemanticScoreCache.fromJSON(gCacheObj);
+
+// ungrounded: single confirmatory file (default) OR per-repo prefixed files
+let ungRuns: BenchmarkRun[];
+let ungCache: SemanticScoreCache;
+if (UDIR) {
+  const u = loadPerRepo(UDIR, UPREFIX);
+  ungRuns = u.runs;
+  ungCache = SemanticScoreCache.fromJSON(u.cacheObj);
+} else {
+  ungRuns = JSON.parse(readFileSync(P2, "utf8")) as BenchmarkRun[];
+  ungCache = SemanticScoreCache.fromJSON(JSON.parse(readFileSync(P2CACHE, "utf8")) as Record<string, number>);
+}
+// grounded: per-repo pilot runs + merged cache
+const g = loadPerRepo(GDIR, GPREFIX);
+const gRuns = g.runs;
+const gCache = SemanticScoreCache.fromJSON(g.cacheObj);
 
 const PILOT = new Set(gRuns.map((r) => r.instanceId));
 function matched(f: ReviewFinding, g: GroundTruthIssue, cache: SemanticScoreCache): boolean {

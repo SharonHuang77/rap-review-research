@@ -30,6 +30,7 @@ import { InMemoryRawDiffStorage } from "../src/storage/in-memory/in-memory-raw-d
 import { InMemoryArchitectureRegistry } from "../src/architectures/in-memory-architecture-registry.ts";
 import { AgentlessArchitecture } from "../src/architectures/agentless/agentless-architecture.ts";
 import { createHierarchicalArchitecture } from "../src/architectures/hierarchical/index.ts";
+import { PromptBuilder } from "../src/llm/prompts/prompt-builder.ts";
 import { PromptLoader } from "../src/llm/prompts/prompt-loader.ts";
 import { ContextBuilder } from "../src/llm/prompts/context-builder.ts";
 import { BedrockProvider } from "../src/llm/provider/bedrock-provider.ts";
@@ -64,7 +65,11 @@ const DATA_DIR = resolve(process.env.BENCHMARK_DATA_DIR ?? "data/benchmark");
 const TAU = Number(process.env.SEMANTIC_THRESHOLD ?? 0.7);
 const JUDGE_MODEL = process.env.JUDGE_MODEL ?? DEFAULT_JUDGE_CONFIG.modelId;
 const RUNS_PER_INSTANCE = Math.max(1, Number(process.env.RUNS_PER_INSTANCE ?? 3));
-const ARCHS: ReviewArchitecture[] = ["agentless", "hierarchical"];
+// GROUNDED=0 generates the UNGROUNDED baseline (base PromptBuilder) — needed when
+// the SUT model has no cached ungrounded runs (e.g. the Sonnet capability probe).
+const GROUNDED = (process.env.GROUNDED ?? "1") !== "0";
+const ARCHS: ReviewArchitecture[] = (process.env.ARMS ?? "agentless,hierarchical")
+  .split(",").map((s) => s.trim()).filter(Boolean) as ReviewArchitecture[];
 
 const DEFAULT_PILOT = new Set([
   "aspnetcore-pr-1", "aspnetcore-pr-2", "aspnetcore-pr-3", "aspnetcore-pr-4", "aspnetcore-pr-5", "aspnetcore-pr-6", "aspnetcore-pr-7",
@@ -88,15 +93,15 @@ if (instances.length === 0) {
   process.exit(1);
 }
 const dataset: BenchmarkDataset = { ...full, instances };
-console.log(`GROUNDED generation — repo=${REPO}, ${instances.length} pilot PRs, arms=${ARCHS.join("+")}, ${RUNS_PER_INSTANCE} run(s)/instance`);
-console.log(`  model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}; conventions=${PROJECT_CONVENTIONS[REPO]!.length}`);
+console.log(`${GROUNDED ? "GROUNDED" : "UNGROUNDED"} generation — repo=${REPO}, ${instances.length} pilot PRs, arms=${ARCHS.join("+")}, ${RUNS_PER_INSTANCE} run(s)/instance`);
+console.log(`  model ${LLM_CONFIG.defaultModel} @ ${LLM_CONFIG.region}; conventions=${GROUNDED ? PROJECT_CONVENTIONS[REPO]!.length : 0}`);
 
-// Fixed-repo grounding: every instance in this pass is the same repo.
-const promptBuilder = new GroundingPromptBuilder({
-  loader: new PromptLoader(),
-  contextBuilder: new ContextBuilder(),
-  resolveRepo: () => REPO,
-});
+// Fixed-repo grounding: every instance in this pass is the same repo. GROUNDED=0
+// falls back to the base builder for a matched ungrounded baseline on this model.
+const loaderDeps = { loader: new PromptLoader(), contextBuilder: new ContextBuilder() };
+const promptBuilder = GROUNDED
+  ? new GroundingPromptBuilder({ ...loaderDeps, resolveRepo: () => REPO })
+  : new PromptBuilder(loaderDeps);
 const snapshots = new InMemorySnapshotRepository();
 const rawDiffStorage = new InMemoryRawDiffStorage();
 const registry = new InMemoryArchitectureRegistry();
