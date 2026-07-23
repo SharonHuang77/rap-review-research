@@ -104,8 +104,14 @@ const promptBuilder = GROUNDED
   : new PromptBuilder(loaderDeps);
 const snapshots = new InMemorySnapshotRepository();
 const rawDiffStorage = new InMemoryRawDiffStorage();
+// ROLE_CATEGORY overrides the agentless role template (e.g. "audit" for the
+// convention-audit probe — a lint-only task framing over the same conventions).
+const roleCat = process.env.ROLE_CATEGORY;
+const agentlessDeps = roleCat
+  ? { provider, promptBuilder, rawDiffStorage, role: { category: roleCat, name: "system" } }
+  : { provider, promptBuilder, rawDiffStorage };
 const registry = new InMemoryArchitectureRegistry();
-registry.register(new AgentlessArchitecture({ provider, promptBuilder, rawDiffStorage }));
+registry.register(new AgentlessArchitecture(agentlessDeps));
 registry.register(createHierarchicalArchitecture({ provider, promptBuilder, rawDiffStorage }));
 const importCtx = createPRImportService({ snapshots, rawDiffStorage });
 const experimentCtx = createExperimentService({ snapshots, registry });
