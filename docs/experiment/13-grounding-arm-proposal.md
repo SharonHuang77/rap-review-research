@@ -1,7 +1,9 @@
 # 13 — Grounding Arm: does project context beat topology? (proposal + pilot)
 
-**Status:** Proposal for co-author review. NOT yet a registration amendment; the
-pilot below runs BEFORE any freeze and informs a later confirmatory registration.
+**Status:** Proposal + **pilot COMPLETE (2026-07-22)** — see §10 (results) and §11
+(synthesis). Still NOT a registration amendment; the pilot is exploratory (n≈20)
+and informs the confirmatory design in §12. §§1–9 are the pre-pilot design and
+the §9 prediction was registered before the pilot was read.
 **Date:** 2026-07-22
 **Authors:** En-Ping Su, Tong Wu, Shiting Huang, Mengshan Li
 **Relation to the registered study:** a NEW generation condition (it changes the
@@ -182,3 +184,118 @@ ungrounded-Hierarchical on rule recall and F1; grounding × topology is
 sub-additive. If instead both types rise together, we conclude *verbosity*, not
 grounding; if neither moves, the coverage pre-flight tells us whether the cause is
 grounding or the benchmark's synthetic conventions.
+
+---
+
+## 10. Pilot results (2026-07-22, exploratory, n≈20)
+
+Haiku 4.5 SUT; 20-PR pilot subset; grounded runs generated live, ungrounded
+baseline reused byte-identically from the cached confirmatory
+`qodo-all-runs.json`. All recall is semantic (Llama judge, τ=0.7). Every number
+below replays from persisted runs/caches; scripts:
+`grounding-coverage-preflight.ts`, `grounding-judge-eval.ts`,
+`grounding-analysis.ts`, `grounding-func-misses.ts`,
+`phase3-hetero-by-category.ts`, `phase3-borrowed-metrics.ts`.
+
+**P0 coverage pre-flight = GO:** repo-derived conventions cover **100%** of the
+pilot's injected rule categories (aspnetcore 30/30, Ghost 18/18) — the injected
+rules ARE the repos' real house style, so a null reflects grounding, not a
+benchmark artifact.
+
+### 10.1 Grounding effect — directional, underpowered; ceilings ~40%
+Difference-in-differences (Δrecall_rule − Δrecall_func); functional bugs are the
+placebo (should not move):
+
+| model, agentless | rule ung→grounded | func ung→grounded | DiD | verdict |
+|---|---|---|---|---|
+| Haiku | 33→38 (Δ+4.9, CI[0.0,12.2]) | 61→60 (Δ−0.6) | +5.5, CI[−8.3,22.2] | not sig |
+| Sonnet | 31→37 (Δ+6.0, CI[−0.7,14.7]) | 71→66 (Δ−4.8) | +10.8, CI[0.9,22.2] | sig, but driven by the func drop |
+
+Hierarchical grounding: null (rule Δ≈0). The rule gain is real but **modest and
+ceilings at ~37–40%**; Sonnet's significant DiD comes largely from a functional
+recall **trade-off** (grounding reallocates a fixed attention budget), not a big
+rule jump. Grounded-hierarchical did not beat grounded-agentless (grounding and
+topology are sub-additive).
+
+### 10.2 The ceiling is NOT suppression (audit probe)
+Reframing the task from "review this PR" to a lint-only convention audit ("flag
+EVERY violation; nitpicks are the target") barely moved rule recall
+(**38→40%**). Of the audit's missed rule-violations, **12/21 had no flag anywhere
+in the file** (only 1 was a localization/matching near-miss); the missed cases are
+mechanical/config — a double-quoted import specifier, JSON indentation, an i18n
+filename. So the limit is **genuine recognition/behavior** (LLM reviewers do not
+do exhaustive line-by-line mechanical scanning), not prioritization/suppression
+and not a measurement artifact.
+
+### 10.3 Capability axis (Sonnet vs Haiku, ungrounded, paired, n=19)
+| defect type | Haiku | Sonnet | Δ(Sonnet−Haiku) |
+|---|---|---|---|
+| rule (mechanical) | 33% | 33% | −0.7pp, CI[−8.7,8.3] |
+| func (reasoning) | 61% | 71% | **+10.1pp** (CI includes 0 at n=19) |
+
+Capability buys **functional-bug** recall (reasoning) and **~nothing** on
+conventions (mechanical). Grounded rule recall converges to a common ~37% ceiling
+across both models — a wall capability does not build.
+
+### 10.4 Functional-bug miss anatomy (53 func GT, agentless ungrounded)
+both-catch 53% · **Sonnet-only 19%** · Haiku-only 9% · **both-miss 19%**.
+- **Sonnet-only (capability unlocks):** local logic-heavy reasoning — off-by-one,
+  inverted `!==`→`===`, missing branch call, races/disposal order, `floor`-vs-`round`,
+  platform-specific path comparison.
+- **both-miss (shared hard core):** bugs needing information **outside the diff**
+  (wrong `require` path — file's real name not visible), **harmful deletions**
+  (removed try-catch / equality check), cross-file consistency, deep domain/library
+  semantics, and non-salient files (tests, i18n). Haiku-only (9%) shows the two
+  models even trade misses on this class → it is capability-invariant.
+- (Haiku and Sonnet are the SAME family, so 19%+9%=28% "only-one-caught"
+  UNDERSTATES cross-vendor decorrelation.)
+
+### 10.5 Cross-family, by defect type (confirmed 80-PR data, for contrast)
+Union recall (≥1 family) and precision by corroboration depth, Haiku/Kimi/GLM:
+
+| | ≥1 (union) | ≥2 | ≥3 |
+|---|---|---|---|
+| functional recall — cross-family | **80%** | 61% | 43% |
+| functional recall — same-model×3 | 71% | 70% | 69% |
+| rule recall — cross-family | 45% | 26% | 18% |
+| precision at depth (all) | 28% | 51% | **89%** |
+
+Cross-family **union** lifts functional recall to 80% (vs 71% for 3 runs of one
+model — error decorrelation), and agreement **depth** is a precision instrument
+(28→89%). Rule recall stays low (45%) even unioned — conventions are a shared
+blind spot. The ≥2-family "trustworthy" set is 72% precise (52% func-TP / 20%
+rule-TP / 28% FP).
+
+## 11. Synthesis — three defect classes, three levers
+
+| defect class | binding lever | pilot/confirmed evidence | does NOT help |
+|---|---|---|---|
+| **conventions / rules** | deterministic **lint** | capability Δ≈0 (Haiku=Sonnet 33%); grounding ceilings ~40%; audit=40% (not suppression); misses are mechanical/config | more capability, grounding, homogeneous agents |
+| **functional · reasoning-contained** | model **capability** + **cross-family union** | Sonnet +10pp func; cross-family union 80% vs same-model 71%; depth-3 precision 89% | conventions-grounding |
+| **functional · hard core** (cross-file / harmful deletion / needs-execution) | **grounding (repo context) + execution** | both-miss 19%; needs info outside the diff; capability- and family-invariant | more capability, more families (cannot manufacture absent information) |
+
+Negative lessons that constrain the design (from the confirmatory arm): homogeneous
+topology adds no quality (H-specialization null), and same-model self-consistency
+does not rescue (H-verify null) — so the productive verification must be
+**cross-family**, not same-model repetition.
+
+**Headline:** no single "bigger model" or "more homogeneous agents" spans the three
+classes; each needs a different lever (lint / capability+cross-family / execution).
+The grounding arm's contribution is not "grounding helps" (it is a weak ~5pp lever
+that ceilings at 40%) but this **map of which lever each defect class requires.**
+
+## 12. Confirmatory implications (revised by the pilot)
+
+- **Run on the frontier model at large N.** Capability-dependent magnitudes shift
+  with scale (Haiku→Sonnet already moved func +10pp); the reasoning-contained
+  results measured on Haiku may not transfer. Structural results (conventions
+  capability-invariant; cross-family precision from independence) are scale-robust.
+- **Grounding arm:** full 80-PR set + a **lint-hybrid baseline** (deterministic
+  linter as the convention oracle) + a length-matched placebo block; report recall
+  by type + precision + the func trade-off as a joint outcome.
+- **Reframed registered question:** not "does grounding help?" but "**LLM + linter
+  + execution division of labor vs pure-LLM grounding**" — which lever pays for
+  which defect class.
+- Two follow-ons the pilot motivates: cross-family **union×depth by defect type at
+  scale** (the confirmed 80/45 + 28/51/89 numbers, powered), and the func **hard
+  core under execution grounding** (c-CRAB direction).
