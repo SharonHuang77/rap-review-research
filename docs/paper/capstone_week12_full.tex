@@ -86,7 +86,11 @@ different: findings corroborated by ${\geq}2$ independent model families
 reach precision 0.72 vs.\ 0.54 single-arm at equal-or-higher F1, and
 findings all three families agree on are real 89\% of the time vs.\ 54\%
 for one model repeating itself across three runs (gap CI $[0.29, 0.41]$;
-judge-invariant, $\kappa{=}0.95$ across two independent pair judges). In
+judge-invariant, $\kappa{=}0.95$ across two independent pair judges). On the
+recall axis the diversity effect is small and saturating---unioning independent
+families adds only ${\sim}3$ points of coverage over temperature-matched
+sampling of a single model and plateaus within three families---so the
+multi-agent payoff is a precision effect, not a coverage one. In
 multi-agent code review, diversity pays on the verification axis, not the
 generation axis.
 \end{abstract}
