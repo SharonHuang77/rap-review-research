@@ -589,6 +589,42 @@ Consensus      & 0.322 & 0.536 & 0.369 & 0.678 \\
 \end{tabular}
 \end{table}
 
+\subsection{Model capability is not a defect-type-targeted lever}
+\label{sec:capability}
+A registered amendment tested whether a stronger model's advantage concentrates
+on reasoning-limited functional bugs (a capability~$\times$~defect-type
+interaction). On the 80-PR disjoint remainder, agentless-ungrounded, the primary
+difference-in-differences is \textbf{null}:
+$\mathrm{DiD}{=}\Delta\text{recall}_{\text{func}}-\Delta\text{recall}_{\text{rule}}
+{=}{-}1.8$ points (CI $[-8.6, 5.5]$, $p{=}0.68$). Sonnet~4.5 improves both types
+modestly over Haiku (functional $0.70{\to}0.74$, rule $0.32{\to}0.37$) at equal
+or better precision---a broad, undirected lift, not a targeted one. The pilot's
+$+10$-point functional-only interaction reproduces only on the two
+convention-dense pilot repositories and vanishes elsewhere. Capability/scale
+buys uniform recall, not a defect-class-specific capability.
+
+\subsection{No generation-side structure beats compute-matched sampling}
+\label{sec:decomp}
+The specialization null (Sec.~\ref{sec:generation}) is not specific to
+\emph{roles}; two further ways to structure the generation side also fail
+(exploratory). \textbf{Module decomposition:} partitioning each PR by code
+module, reviewing every module with its own agent, and unioning beats a single
+whole-PR review by ${+}6.4$ points of recall ($p{=}0.016$, $N{=}50$)---but that
+is the ${\sim}2.6{\times}$ extra compute, not the decomposition: at a matched
+call budget, module-union \emph{trails} plain multi-sampling on the
+multi-module-GT subset ($0.54$ vs.\ $0.57$; $\tilde\Delta{=}{-}0.029$,
+$p{=}0.44$, $n{=}24$). \textbf{Error-type specialists:} prompting one model to
+report \emph{only} convention issues and another \emph{only} functional bugs,
+then unioning, is worse---focus \emph{reduces} per-type recall (convention
+specialist $24\%$ of rule violations vs.\ the generalist's $32\%$; functional
+$59\%$ vs.\ $68\%$) because ``report only $X$'' suppresses output ($5.3$
+findings/PR vs.\ $16.1$), and the team reaches recall $0.47$, below the
+generalist ($0.50$) and the same-budget baselines (multi-sample $0.58$,
+cross-family $0.60$). Prompt ``personas'' on a single model are a negative
+decorrelation source. Type specialization pays only when it changes the
+detection \emph{mechanism} (a deterministic linter, execution, or an independent
+model family), not the prompt.
+
 \subsection{H-verify: the pilot's self-consistency rescue does not
 replicate}
 \label{sec:hverify}
@@ -667,6 +703,42 @@ Cross-family $\times$3    & 28\% (419) & 51\% (114) & \textbf{89\% (137)} \\
 \\[2pt]{\footnotesize Cell $=$ golden-match rate ($n$ clusters).}
 \end{table}
 
+\subsection{The recall axis is a decorrelation ladder (temperature-dominated)}
+\label{sec:ladder}
+The confirmed cross-family result above is a \emph{precision} instrument; on the
+orthogonal \emph{recall} axis the cross-family gain is real but small once
+compute is matched fairly (exploratory). Table~\ref{tab:ladder} unions $K$
+agentless reviews two ways on the same 97 Qodo PRs: $K$ temperature-diverse
+samples of one model (Haiku, $T{=}0.7$) vs.\ $K$ distinct families.
+Temperature-sampling a single model already reaches $0.61$ recall at $K{=}3$;
+adding whole families lifts it only to $0.64$---a ${+}3$-point diversity bonus
+that saturates by ${\sim}3$--$4$ families (ceiling ${\sim}0.65$--$0.66$; findings
+keep rising with flat recall and eroding precision). Most union-recall gain is a
+single model recovering issues it can find but does not surface in one pass
+(self-coverage); cross-family adds only the thin complement it cannot reach at
+any temperature. A same-model union at $T{=}0$ (near-identical runs) gives
+essentially nothing (${+}0.9$ points), so comparing cross-family against a
+$T{=}0$ baseline overstates the bonus; the fair, temperature-matched figure is
+${+}3$ points.
+
+\begin{table}[t]
+\caption{Union recall by number of draws $K$ (semantic matching, 97 Qodo PRs).
+Homo $=$ one model (Haiku) at $T{=}0.7$; hetero $=$ Haiku plus one distinct
+family per rung (Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra).}
+\label{tab:ladder}
+\centering
+\begin{tabular}{lccccccc}
+\toprule
+$K$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+\midrule
+Homo ($T{=}0.7$)  & 0.49 & 0.58 & 0.61 & --- & --- & --- & --- \\
+Hetero (families) & 0.51 & 0.61 & 0.64 & 0.65 & 0.65 & 0.66 & 0.66 \\
+\bottomrule
+\end{tabular}
+\\[2pt]{\footnotesize Diversity bonus (hetero $-$ homo) $=$ ${+}0.03$ at
+$K{=}2,3$. Family order affects per-step marginals, not the $K{=}\max$ total.}
+\end{table}
+
 \subsection{Where the signal lives}
 Stratifying the 80-PR set by Qodo's two injected defect types shows the
 cross-family signal is carried by the \emph{hard} class. Of the in-set
@@ -674,7 +746,11 @@ functional bugs (217), 80\%/61\%/43\% are caught by ${\geq}1/2/3$
 independent families, versus 45\%/26\%/18\% of the project-specific rule
 violations (220): a generic reviewer cannot know repository-local
 conventions, but universal functional defects are exactly where
-independent families converge. The ${\geq}2$-family ``trustworthy'' set is
+independent families converge. The ${\geq}1$-family coverage figure is a union
+over three families and is therefore temperature-dominated (a single model
+sampled three times reaches most of it, Table~\ref{tab:ladder}); the
+cross-family contribution is carried by the agreement-depth (precision) result
+above, not by coverage volume. The ${\geq}2$-family ``trustworthy'' set is
 52\% functional true positives, 20\% rule true positives, and 28\%
 golden-unmatched. False-positive anatomy adds two correctives: 21--32\% of
 golden-unmatched findings are near-misses within ten lines of a real
@@ -804,7 +880,14 @@ signal on top of any single reviewer. Future work: human $\kappa$
 validation of the pair judge, fixed-definition human adjudication of
 benchmark completeness, the industrial-portal arm, the complexity
 interaction, and replication on execution-grounded review benchmarks such
-as c-CRAB~\cite{crab}.
+as c-CRAB~\cite{crab}. Two exploratory probes sharpen the tooling boundary: a
+deterministic checker mirroring the repositories' own lint rules recovers
+mechanical conventions the LLM misses (a missing \texttt{Async} suffix at
+$43\%$ vs.\ the LLM's $7\%$), so mechanical conventions belong to deterministic
+tooling rather than more agents; and supplying whole changed files plus one-hop
+dependencies at the review commit does not raise recall over the diff alone
+($0.37{\to}0.35$, n.s.), so passive context is not the lever---adaptive,
+agentic retrieval and execution is the frontier direction.
 
 \section*{Acknowledgment}
 The authors thank their capstone advisors Lino Coria Mendoza and Yvonne

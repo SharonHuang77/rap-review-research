@@ -1,0 +1,142 @@
+% =====================================================================
+% DRAFT ADDITIONS (week 13) — decorrelation axis + null decompositions.
+% Paste-ready fragments for capstone_week12_full.tex. Sources: doc-14
+% (capability, registered), doc-16 (CRAB grounding, exploratory), doc-17
+% (module / ladder / type-specialist, exploratory). Numbers replay from
+% module-arm/*.out and the committed analysis scripts.
+%
+% CO-AUTHOR NOTE: everything here is EXPLORATORY except Block D (capability,
+% registered via the OSF amendment). Keep the exploratory/confirmatory line
+% explicit; coordinate placement with Sharon/advisor before merging.
+% =====================================================================
+
+
+% ---------------------------------------------------------------------
+% BLOCK A — extends Sec.~\ref{sec:generation}. Place immediately AFTER the
+% generation-axis subsection (after the SWE-PRBench paragraph, ~line 573).
+% Generalizes H-specialization from "roles" to "any generation-side structure".
+% ---------------------------------------------------------------------
+\subsection{No generation-side structure beats compute-matched sampling}
+\label{sec:decomp}
+The specialization null (Sec.~\ref{sec:generation}) is not specific to
+\emph{roles}. We tested two further ways to structure the generation side and
+neither beats spending the same calls on plain resampling.
+
+\textbf{Module decomposition.} Partitioning each PR by code module and
+reviewing every module with its own agent, then unioning, beats a single
+whole-PR review by ${+}6.4$ points of recall ($p{=}0.016$, $N{=}50$)---but that
+is the ${\sim}2.6{\times}$ extra compute, not the decomposition: at a matched
+call budget (each PR reviewed the same number of times whole vs.\ by module),
+module-union \emph{trails} plain multi-sampling on the multi-module-GT subset
+($0.54$ vs.\ $0.57$; $\tilde\Delta{=}{-}0.029$, $p{=}0.44$, $n{=}24$), with
+lower precision. Splitting by module even hurts slightly.
+
+\textbf{Error-type specialists.} Prompting one model to report \emph{only}
+convention issues, and another to report \emph{only} functional bugs, then
+unioning, is worse still. Per type, focus \emph{reduces} recall---the
+convention specialist recovers $24\%$ of rule violations vs.\ the generalist's
+$32\%$, and the functional specialist $59\%$ vs.\ $68\%$---because ``report only
+$X$'' suppresses output ($5.3$ findings/PR vs.\ the generalist's $16.1$). The
+two-specialist team reaches recall $0.47$ (precision $0.57$), \emph{below} the
+generalist ($0.50$) and far below the same-budget baselines (multi-sample
+$0.58$; cross-family $0.60$). Prompt ``personas'' on a single model are a
+negative decorrelation source: they narrow attention without diversifying
+error. Type specialization pays only when it changes the detection
+\emph{mechanism} (a deterministic linter, execution, or an independent model
+family), not the prompt.
+
+
+% ---------------------------------------------------------------------
+% BLOCK B — new table + paragraph. Place in Sec.~\ref{sec:hetero}
+% ("Where the signal lives"), or as a short "\subsection{The recall axis:
+% a decorrelation ladder}" right after it. Right-sizes the RECALL story so it
+% is not conflated with the confirmed PRECISION result.
+% ---------------------------------------------------------------------
+\subsection{The recall axis is a decorrelation ladder (temperature-dominated)}
+\label{sec:ladder}
+The confirmed cross-family result is a \emph{precision} instrument
+(Sec.~\ref{sec:hetero}); on the orthogonal \emph{recall} (coverage) axis the
+cross-family gain is real but small once compute is matched fairly.
+Table~\ref{tab:ladder} unions $K$ agentless reviews two ways on the same 97
+Qodo PRs: $K$ temperature-diverse samples of one model (Haiku, $T{=}0.7$) vs.\
+$K$ distinct model families. Temperature-sampling a single model already
+reaches $0.61$ recall at $K{=}3$; adding whole families lifts it only to
+$0.64$---a ${+}3$-point diversity bonus that saturates by $\sim$3--4 families
+(ceiling $\sim0.65$--$0.66$; findings/PR keep rising with flat recall and
+eroding precision). Most of the union-recall gain is a single model recovering
+issues it can find but does not surface in one pass (self-coverage);
+cross-family adds only the thin complement of issues that model cannot reach at
+any temperature. A same-model union at $T{=}0$ (near-identical runs) gives
+essentially nothing (${+}0.9$ points), so comparisons of cross-family against a
+$T{=}0$ baseline overstate the diversity bonus; the fair, temperature-matched
+figure is ${+}3$ points.
+
+\begin{table}[t]
+\caption{Union recall by number of draws $K$ (semantic matching, 97 Qodo PRs).
+Homo $=$ one model (Haiku) at $T{=}0.7$; hetero $=$ Haiku plus one distinct
+family per rung (Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra).}
+\label{tab:ladder}
+\centering
+\begin{tabular}{lccccccc}
+\toprule
+$K$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+\midrule
+Homo ($T{=}0.7$) & 0.49 & 0.58 & 0.61 & --- & --- & --- & --- \\
+Hetero (families) & 0.51 & 0.61 & 0.64 & 0.65 & 0.65 & 0.66 & 0.66 \\
+\bottomrule
+\end{tabular}
+\\[2pt]{\footnotesize Diversity bonus (hetero $-$ homo) $=$ ${+}0.03$ at
+$K{=}2,3$. Hetero adds a new family per rung; family order affects per-step
+marginals, not the $K{=}\max$ total.}
+\end{table}
+
+
+% ---------------------------------------------------------------------
+% BLOCK C — one-sentence caveat. Insert into Sec.~\ref{sec:hetero}
+% "Where the signal lives", right after the "80\%/61\%/43\%" sentence (~line 673).
+% ---------------------------------------------------------------------
+% (append this sentence)
+The ${\geq}1$-family coverage figure is a union over three families and is
+therefore temperature-dominated (a single model sampled three times reaches
+most of it, Table~\ref{tab:ladder}); the cross-family contribution is carried
+by the \emph{agreement-depth} (precision) result above, not by coverage volume.
+
+
+% ---------------------------------------------------------------------
+% BLOCK D — CONFIRMATORY (registered, OSF amendment / doc-14). Upgrade the
+% "exploratory Sonnet pilot" aside in Sec.~\ref{sec:generation} (~line 563)
+% into a registered result, or add as a short subsection here.
+% ---------------------------------------------------------------------
+\subsection{Model capability is not a defect-type-targeted lever}
+\label{sec:capability}
+A registered amendment tested whether a stronger model's advantage concentrates
+on reasoning-limited functional bugs (a capability~$\times$~defect-type
+interaction). On the 80-PR disjoint remainder, agentless-ungrounded, the primary
+difference-in-differences is \textbf{null}:
+$\mathrm{DiD}{=}\Delta\text{recall}_{\text{func}}-\Delta\text{recall}_{\text{rule}}
+{=}{-}1.8$ points (CI $[-8.6, 5.5]$, $p{=}0.68$). Sonnet~4.5 improves both types
+modestly over Haiku (functional $0.70{\to}0.74$, rule $0.32{\to}0.37$) at equal
+or better precision---a broad, undirected lift, not a targeted one. The pilot's
+$+10$-point functional-only interaction reproduces only on the two
+convention-dense pilot repositories and vanishes elsewhere. Capability/scale
+buys uniform recall, not a defect-class-specific capability.
+
+
+% ---------------------------------------------------------------------
+% BLOCK E — Discussion / Future Work sentences (Sec.~\ref{...Conclusion} or
+% Threats). Fold in as appropriate.
+% ---------------------------------------------------------------------
+% Conventions -> deterministic tooling (doc-13 lint baseline):
+The rule-violation gap (Sec.~\ref{sec:hetero}) is not a modelling problem but a
+tooling one: a deterministic checker mirroring the repositories' own lint rules
+recovers mechanical conventions the LLM misses (e.g.\ a missing \texttt{Async}
+suffix at $43\%$ vs.\ the LLM's $7\%$), while the LLM wins on framework/policy
+conventions; a lint$\,\cup\,$LLM hybrid roughly doubles single-tool convention
+recall. Mechanical conventions belong to deterministic tooling, not to more
+agents.
+% Static context is not the lever (doc-16 CRAB):
+Giving the reviewer whole changed files plus one-hop dependencies (retrieved at
+the review commit) does not raise recall over the diff alone
+($0.37{\to}0.35$, n.s.\ on 50 CRAB PRs) despite changing most outputs---passive
+context injection is not the lever; the frontier evidence points instead to
+agentic, adaptive retrieval and execution~\cite{swereview}.
