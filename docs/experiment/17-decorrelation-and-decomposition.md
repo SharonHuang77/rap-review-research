@@ -32,8 +32,13 @@ pushes recall highest of all (67%) but at a large precision cost. The tempting
 "conditioning + cross-family filter" pairing is **falsified** (§7.1): the filter does
 reclaim precision, but plain temperature sampling + the same filter strictly
 dominates it (R30/P62 vs R24/P59), and neither beats the plain independent K=3 union.
-No recombination of one model's own samples clears the plain-union frontier — only
-cross-family (mechanism-changing) decorrelation does.
+Nor does a smarter back-end: MAV-style **aspect verifiers** (§9) beat agreement
+filters (they lift the messy conditioned base 0.33→0.36 where agreement dropped it to
+0.31) but still only *converge* to the plain-union frontier F1 ~0.37 — never exceed it,
+and they slightly hurt an already-clean base. No recombination of one model's own
+samples — with agreement OR aspect verification — clears the plain-union frontier; only
+cross-family (mechanism-changing) decorrelation does, and the last ~17% (§8) needs
+agency/execution, not a better combiner.
 
 ## 1. Module decomposition — no value beyond compute
 
@@ -298,3 +303,56 @@ issues* (biggest off-diagonal jumps are cross-family), while same-family draws
 (temperature, conditioning) mostly re-cover the same reachable subset. **Takeaway for
 the paper:** decorrelation buys coverage only up to an ~83% diff-scoped ceiling; the
 last ~17% is an agency/execution problem, not a sampling one.
+
+## 9. Aspect-verifier back-end (MAV) — aspect ≫ agreement, but still no free lunch
+
+§6/§7.1 showed AGREEMENT filters (self-consistency, cross-family) are precision-only
+and never raise F1 — they ask "do N samples agree?". Multi-Agent Verification
+(Lifshitz et al., arXiv:2502.20379) argues the lever is ASPECT verification — "is
+dimension X satisfied?" — and that diverse aspect verifiers push the P-R frontier
+*beyond* consensus. `aspect-verifier-eval.ts` tests that on our high-coverage bases: a
+verifier LLM sees the diff + one finding and returns four independent booleans (`real`,
+`localized`, `actionable`, `supported`); keep findings above a threshold; the kept
+subset is scored against the base's existing GT judge cache (only the verifier calls
+are paid). Full N=100, verifier = DeepSeek-v3.2 (cross-family, avoids self-preference).
+
+| base | pipeline | R | P | F1 | f/PR |
+|---|---|---|---|---|---|
+| conditioned | raw union | 67% | 23% | 0.33 | 16.6 |
+| conditioned | × aspect (actionable-maj) | 47% | 33% | **0.36** | 7.7 |
+| conditioned | × agreement (§7.1 cross-family ≥1) | 24% | 59% | 0.31 | 1.7 |
+| independent | raw union | 63% | 28% | **0.37** | 13.4 |
+| independent | × aspect (actionable-maj) | 44% | 35% | 0.36 | 6.8 |
+| independent | × agreement (§7.1 cross-family ≥1) | 30% | 62% | 0.37 | 2.2 |
+
+- **Aspect ≫ agreement (partial MAV vindication).** On the messy conditioned base,
+  aspect verification RAISES F1 (0.33 → **0.36**) where agreement filtering LOWERED it
+  (0.31). Aspect verifiers are far more *recall-preserving* (keep 47–52% of findings vs
+  agreement's 24–30%), so they clean up conditioning's fabrications without gutting
+  coverage. This is the one place a back-end beat the raw union it filtered.
+- **But it is not a genuine F1 lever — it converges, it does not exceed.** The matched
+  control settles it: aspect verification takes BOTH bases to the *same* ~0.36 band —
+  it lifts the fabrication-heavy conditioned base (0.33→0.36) but slightly *hurts* the
+  already-clean independent base (0.37→0.36). **Nothing crosses the plain-union frontier
+  0.37.** The best operating point in the whole table is still "just take the plain
+  independent union, no verifier" (0.37).
+- **On a clean base, agreement is the better precision instrument.** Independent ×
+  cross-family agreement = P62 at F1 0.37; independent × aspect = P35 at F1 0.36. Aspect
+  verification only wins when the base is polluted enough (conditioning) that agreement's
+  aggressiveness costs too much recall.
+- **Mechanism.** A WEAK verifier is useless: Llama-3.3-70B collapsed — 95% of its
+  verdicts were all-4-true or all-4-false (a blanket accept/reject, uncorrelated with
+  truth). Strong verifiers (DeepSeek/Sonnet) genuinely decompose (collapse 65–69%), and
+  **`actionable` is the only discriminating aspect** — only ~⅓ of conditioned findings
+  pass it (the verifier correctly reads most as nitpicks/speculation), vs ~66% for
+  `localized`. Sonnet-4.5 tracks DeepSeek on a 10-PR bake-off (best F1 ≤ 0.30 on that
+  easier slice), so the ceiling is not a verifier-capability artifact.
+
+**Conclusion (closes §9):** MAV's "aspect verifiers beat consensus on the P-R frontier"
+does **not** transfer to code-review finding-validation. Aspect verification is a real
+improvement *over agreement* as a back-end, but it merely equals — never exceeds — the
+plain independent-union frontier (F1 ~0.37), and slightly hurts an already-clean base.
+Combined with §6/§7.1, the verdict on precision back-ends is complete: **no filter or
+verifier — agreement or aspect-decomposed — lets a single model's recombined samples
+clear the plain-union frontier.** The lever is not a better back-end; it is decorrelated
+generation (cross-family §2) or, for the ~17% unreachable core (§8), agency/execution.
