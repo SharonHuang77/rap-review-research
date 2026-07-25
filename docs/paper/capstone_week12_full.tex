@@ -762,6 +762,32 @@ defect (localization slop, not hallucination), and 91\% of false positives
 are low/medium severity---the arms' high-severity findings are almost
 always real.
 
+\subsection{The diff-scoped ceiling and a division of labour}
+\label{sec:ceiling}
+Pushing decorrelation to its limit---the union of \emph{every} configuration we
+ran (eleven sources: seven model families, a conditioned ``find-new'' resampling
+arm, and a temperature sweep)---reaches only $0.83$ recall on the 97-PR set, and
+leave-one-out shows no single source contributes more than ${\sim}2$ points, so the
+ceiling is robust (exploratory). The residue is not random. Functional bugs are
+$89\%$ robustly reachable (covered by ${\geq}2$ sources), whereas $36\%$ of the
+project-specific rule violations are reached by \emph{no} configuration: reasoning
+errors decorrelate across models, but a mechanical-convention blind spot is
+\emph{correlated}, so eleven draws miss the same violations. Categorising the
+unreachable core, ${\sim}65\%$ are mechanical conventions a deterministic linter
+targets and ${\sim}15\%$ are a hard functional core (cross-file renames, dynamic
+imports, races, harmful deletions) invisible to a diff-scoped reviewer. Wiring in a
+linter confirms the division of labour: on the two convention-authored pilot
+repositories, a single deterministic checker out-recalls the entire eleven-model
+union on exactly the rules it targets ($0.54$ vs.\ $0.46$), and their hybrid reaches
+$0.61$---the linter recovering ${\sim}27\%$ of the rule violations no amount of
+sampling reached. Multi-agent review thus has three separable jobs, each with its
+own tool: \emph{lint} the mechanical conventions, \emph{union-sample across
+families} for functional bugs, and reserve \emph{agentic retrieval or execution} for
+the hard functional core. No precision back-end changes this picture: neither
+cross-family agreement (Section~\ref{sec:hetero}) nor MAV-style decomposed aspect
+verification lifts $F_1$ above a plain independent union---filters and verifiers
+trade recall for precision but do not move the frontier.
+
 \subsection{Ground-truth completeness: direction robust, magnitude
 definitional}
 \label{sec:completeness}
