@@ -37,8 +37,8 @@ filters (they lift the messy conditioned base 0.33→0.36 where agreement droppe
 0.31) but still only *converge* to the plain-union frontier F1 ~0.37 — never exceed it,
 and they slightly hurt an already-clean base. No recombination of one model's own
 samples — with agreement OR aspect verification — clears the plain-union frontier; only
-cross-family (mechanism-changing) decorrelation does, and the last ~17% (§8) needs
-agency/execution, not a better combiner.
+cross-family (mechanism-changing) decorrelation does, and the last ~17% (§8) is mostly a
+**linter's** job (§10), not a better combiner or more sampling.
 
 ## 1. Module decomposition — no value beyond compute
 
@@ -278,12 +278,13 @@ covered redundantly and the 15pp is spread thin across decorrelated sources.** R
 any one config barely moves it, so 83% is a robust reachable-set estimate.
 
 **(b) The ~17% unreachable core.** Even the union of *everything we tried* leaves ~17%
-of the injected defects untouched by any pure-LLM, diff-scoped configuration. This is
-the same wall as doc-13's "both-miss hard core" (harmful deletions, cross-file
-consistency, info outside the diff) and doc-16's passive-context null: it is not a
-decorrelation problem (more families/temps/conditioning won't reach it) but an
-**information/agency problem** — it motivates the agentic (§②, SWE-Review/c-CRAB) and
-execution (§③, SWE-Doctor) levers, not more sampling.
+of the injected defects untouched by any pure-LLM, diff-scoped configuration. It is not
+a decorrelation problem (more families/temps/conditioning won't reach it). §10
+anatomises what it *is*: mostly (~65%) mechanical **convention** rules LLMs share a
+correlated blind spot for (→ a linter, per doc-13), plus a small (~15%) functional
+hard-core (cross-file/dynamic-import/race/deletion) that is the genuine
+agency/execution residue (§②/③). Either way the fix is a different *tool*, not more
+sampling.
 
 **(c) Complementarity matrix** (pairwise union recall; diagonal = solo):
 
@@ -355,4 +356,47 @@ plain independent-union frontier (F1 ~0.37), and slightly hurts an already-clean
 Combined with §6/§7.1, the verdict on precision back-ends is complete: **no filter or
 verifier — agreement or aspect-decomposed — lets a single model's recombined samples
 clear the plain-union frontier.** The lever is not a better back-end; it is decorrelated
-generation (cross-family §2) or, for the ~17% unreachable core (§8), agency/execution.
+generation (cross-family §2) or, for the ~17% unreachable core (§8, anatomised in §10),
+lint + agency/execution.
+
+## 10. Anatomy of the unreachable core — it is mostly a LINT problem, not agency
+
+§8 left the ~17% unreachable residue as "an agency/execution problem." `unreachable-
+anatomy.ts` (zero-LLM; per-GT coverage count across the 11 sources, then binned by
+reachability tier × defect class) shows that framing was **wrong, and the truth is
+sharper**. GT severity is unpopulated, but `category` splits the 528 GT issues 264/264
+into FUNCTIONAL (no category — logic/behaviour) and CONVENTION (a named house-style
+rule). Tiers: unreachable (0 sources cover it), fragile (1), robust (≥2).
+
+| class | n | unreachable | fragile | robust |
+|---|---|---|---|---|
+| functional | 264 | **6%** | 5% | **89%** |
+| convention | 264 | **36%** | 10% | 54% |
+| all | 528 | 21% | 8% | 71% |
+
+**The prediction (functional-dominated core) was inverted.** Union sampling is *excellent*
+at functional bugs — **89% are robustly reachable**, only 6% unreachable — because
+reasoning errors DEcorrelate across models, so someone catches each one. The unreachable
+core is instead **85% convention / 15% functional**. Breaking down the 112-issue core:
+
+- **~65% lint-targetable convention** (73 issues: Biome formatting, type annotations,
+  Async-suffix, SwiftLint, naming, test co-location). LLMs share a *correlated* blind
+  spot for mechanical rule-checking — they do not exhaustively scan "does every async
+  method end in Async?", and *which* violations they miss is fixed by the rule, not
+  random, so 11 decorrelated draws all miss the same ones (union recall for convention
+  is only 64%). This is exactly doc-13's lint result (async-suffix: lint 43% vs LLM 7%):
+  the right tool is a deterministic checker, and decorrelation cannot substitute.
+- **~20% conceptual convention** (22: policy/framework rules) — LLM- or context-solvable.
+- **~15% functional hard-core** (17: cross-file/import 35%, race/async 24%, harmful
+  deletion 18% — e.g. "incorrect require path after file rename", "missing module
+  resolution in dynamic import"). THIS is the genuine agency/execution residue (§②/③) —
+  but it is a *small* slice, not the bulk.
+
+**Conclusion (corrects §8):** the ~17–21% no amount of sampling reaches is **not** mainly
+an agency problem — it is **~65% a linter's job**, ~20% conceptual, and only ~15% the
+hard functional core needing repo agency/execution. This is the strongest single
+confirmation of doc-13's "three levers, three tools" map: mechanical conventions → lint,
+reasoning bugs → decorrelated LLMs (already 89% covered), hard functional → agency. The
+one lever that would move the diff-scoped ceiling most is the cheapest: **wire in a
+linter.** EXPLORATORY; coverage proxy lower-bounds the true hard core; the mechanical/
+conceptual split is a keyword heuristic.
