@@ -1,4 +1,4 @@
-# 17 — Decorrelation is the multi-agent lever: module, ladder, and type-specialist arms
+# 17 — Decorrelation is the multi-agent lever: module, ladder, type-specialist, temperature, and conditioning arms
 
 **Status:** EXPLORATORY (Qodo injected-defect benchmark, Haiku 4.5 SUT unless noted;
 cross-family adds Kimi/GLM/DeepSeek/Nova/Llama4/Palmyra). NOT the registered
@@ -20,10 +20,16 @@ Everything reduces to this axis, measured at equal call budget:
 | Error-type-specialist prompts | **−3pp (worse than generalist)** | negative — prompt "personas" suppress, don't diversify |
 | Static grounding / whole-file context (doc-16) | 0 | not a lever (needs agency) |
 | Model capability / scale (doc-14) | broad, undirected (DiD null) | not a targeted lever |
+| Conditioned-sequential ("find-new" passes) | **+6pp recall, exceeds even cross-family** | strongest COVERAGE — but precision collapses (F1-negative raw; needs a downstream filter) |
 
 The only structure that beats spending the same compute on temperature-sampling a
 single model is **cross-family** (decorrelated errors from different pretraining) —
-and only by ~3pp, saturating after ~3 families.
+and only by ~3pp, saturating after ~3 families. Two further knobs (§6–7):
+generation **temperature** helps coverage only up to ~0.3–0.7 (it saturates fast
+and degenerates entirely by 1.3), and downstream agreement **filters** trade recall
+for precision (they never raise F1); **conditioning** each pass on prior findings
+pushes recall highest of all (67%) but at a large precision cost — so the natural
+pairing is high-coverage generation (conditioning) + a cross-family precision filter.
 
 ## 1. Module decomposition — no value beyond compute
 
@@ -113,6 +119,11 @@ changes the detection MECHANISM: a deterministic tool (doc-13 lint: async-suffix
   honest: **decorrelated errors help a little; most structure does not.**
 - Mechanism-changing specialization (lint/execution/family/fine-tune) is the place
   real gains live — future work.
+- On the coverage front-end (§6–7): generation temperature is optimal at ~0.3–0.7
+  and degenerates by 1.3; downstream agreement filters buy precision only (never
+  F1); conditioned-sequential generation is the highest-recall single-model method
+  (67%) but F1-negative raw. The most promising untested pipeline is **high-coverage
+  generation (conditioning) + a cross-family precision filter**.
 
 ## 5. Caveats
 
@@ -125,3 +136,65 @@ changes the detection MECHANISM: a deterministic tool (doc-13 lint: async-suffix
   but point estimate negative).
 - All arms EXPLORATORY (data collected/inspected); a confirmatory decorrelation-
   saturation claim would pre-register on a disjoint PR set + new families.
+
+## 6. Generation temperature and downstream filters
+
+`temp-filter-analysis.ts`, K=3 Haiku per T, 99 Qodo PRs. Three pipelines per
+generation temperature: raw union, self-consistency (keep findings recurring in
+≥2 of 3 runs), cross-family corroboration (keep union findings a second family
+also produces). Recall / precision / F1:
+
+| T | raw union | self-consistency ≥2/3 | cross-family corrob. |
+|---|---|---|---|
+| 0.0 | R51 P50 **F1 .51** | R50 P53 F1 .52 | R13 P84 F1 .22 |
+| 0.3 | R61 P50 **F1 .55** | R31 P65 F1 .42 | R17 P76 F1 .28 |
+| 0.7 | R61 P50 **F1 .55** | R25 P71 F1 .37 | R18 P77 F1 .29 |
+| 1.0 | R63 P50 **F1 .56** | R18 P76 F1 .30 | R16 P81 F1 .27 |
+| 1.3 | **degenerate** — 0/300 runs valid (all JSON garbage) | — | — |
+
+- **Optimal generation T ≈ 0.3–0.7.** Raw-union coverage saturates by T=0.3
+  (51→61), gains only ~2pp more to T=1.0, and collapses at T=1.3 (past the
+  coherence cliff — every run un-parseable). The recall ceiling is capability-bound
+  (~61%, the single-model reachable set), not temperature-bound.
+- **Filters are precision instruments, not F1 maximizers** — high precision, low
+  recall, never beating raw union F1 (raw .55 > self-consistency .52 > cross-family
+  .29). This independently reproduces the paper's framing: cross-family agreement
+  buys precision (76–84%) at a recall cost, and is not a coverage tool.
+- **"Push T higher, let the filter reclaim precision" is FALSIFIED for
+  self-consistency**: higher T destroys the run-to-run overlap the recurrence filter
+  needs, so its recall crashes (50→18%) — worse, not better, at high T. This
+  strengthens the doc-04 H-verify null (self-consistency does not rescue at ANY
+  temperature). It is only WEAKLY true for the cross-family filter: raising T from 0
+  to 0.7 lifts corroborated recall 13→18% at ~flat high precision.
+
+## 7. Conditioned-sequential ("find-new") — the strongest coverage lever, F1-negative raw
+
+Idea (user): on a re-run, put a summary of the previous passes' findings in context
+and instruct the model to find DIFFERENT issues (explicit diversity /
+sampling-without-replacement, vs temperature's implicit diversity).
+`ConditionedPromptBuilder` + `conditioned-eval.ts`: K=3 sequential passes/PR, T=0.7,
+100 PRs, cumulative union after each pass vs the INDEPENDENT homo ladder at the same T.
+
+| K | independent (homo T0.7) | conditioned recall | conditioned precision | F1 | findings/PR |
+|---|---|---|---|---|---|
+| 1 | 49% | 50% | 53% | 0.49 | 5.4 |
+| 2 | 58% | **62%** | 32% | 0.39 | 11.2 |
+| 3 | 61% | **67%** | 23% | 0.33 | 16.6 |
+
+- **Efficiency: yes.** Conditioning reaches 62% by K=2 (independent needs K=3 for 61%).
+- **Ceiling: EXCEEDED** — conditioned K=3 recall **67%** beats independent sampling
+  (61%) AND cross-family union (64%, §2). The "find-new" pressure surfaces
+  low-salience real issues the model will not volunteer in an independent pass, so a
+  single model's reachable set is larger than independent temperature sampling
+  touches. (This corrects the a-priori "cannot exceed the single-model ceiling"
+  prediction.)
+- **Precision: collapses.** 53→32→**23%**; F1 falls monotonically (0.49→0.33). The
+  same "find-new" pressure fabricates (16.6 findings/PR). Raw, conditioning is
+  F1-negative — worse than one pass.
+
+**Conclusion:** conditioning is a **coverage front-end** (highest recall of any
+single-model method), not a usable reviewer on its own. It only pays with a
+downstream precision filter — exactly the high-coverage-generation +
+cross-family-agreement pairing §6 motivates. **Future work:** conditioned generation
+× cross-family/agreement filter — does the filter reclaim precision on the 67%
+coverage base?
