@@ -20,7 +20,7 @@ Everything reduces to this axis, measured at equal call budget:
 | Error-type-specialist prompts | **−3pp (worse than generalist)** | negative — prompt "personas" suppress, don't diversify |
 | Static grounding / whole-file context (doc-16) | 0 | not a lever (needs agency) |
 | Model capability / scale (doc-14) | broad, undirected (DiD null) | not a targeted lever |
-| Conditioned-sequential ("find-new" passes) | **+6pp recall, exceeds even cross-family** | strongest COVERAGE — but precision collapses (F1-negative raw; needs a downstream filter) |
+| Conditioned-sequential ("find-new" passes) | **+6pp recall, exceeds even cross-family** | strongest COVERAGE but precision collapses; a cross-family filter reclaims precision yet is strictly dominated by plain sampling + the same filter (§7.1) |
 
 The only structure that beats spending the same compute on temperature-sampling a
 single model is **cross-family** (decorrelated errors from different pretraining) —
@@ -28,8 +28,12 @@ and only by ~3pp, saturating after ~3 families. Two further knobs (§6–7):
 generation **temperature** helps coverage only up to ~0.3–0.7 (it saturates fast
 and degenerates entirely by 1.3), and downstream agreement **filters** trade recall
 for precision (they never raise F1); **conditioning** each pass on prior findings
-pushes recall highest of all (67%) but at a large precision cost — so the natural
-pairing is high-coverage generation (conditioning) + a cross-family precision filter.
+pushes recall highest of all (67%) but at a large precision cost. The tempting
+"conditioning + cross-family filter" pairing is **falsified** (§7.1): the filter does
+reclaim precision, but plain temperature sampling + the same filter strictly
+dominates it (R30/P62 vs R24/P59), and neither beats the plain independent K=3 union.
+No recombination of one model's own samples clears the plain-union frontier — only
+cross-family (mechanism-changing) decorrelation does.
 
 ## 1. Module decomposition — no value beyond compute
 
@@ -122,8 +126,12 @@ changes the detection MECHANISM: a deterministic tool (doc-13 lint: async-suffix
 - On the coverage front-end (§6–7): generation temperature is optimal at ~0.3–0.7
   and degenerates by 1.3; downstream agreement filters buy precision only (never
   F1); conditioned-sequential generation is the highest-recall single-model method
-  (67%) but F1-negative raw. The most promising untested pipeline is **high-coverage
-  generation (conditioning) + a cross-family precision filter**.
+  (67%) but F1-negative raw. The tempting **conditioning + cross-family filter**
+  pipeline is now tested and **falsified** (§7.1): the filter reclaims precision but
+  plain temperature sampling + the same filter strictly dominates conditioning
+  (R30/P62 vs R24/P59), and neither clears the plain independent-union frontier. The
+  report can state plainly that *no* recombination of one model's own samples beats
+  plain union — closing the coverage-front-end question, not leaving it open.
 
 ## 5. Caveats
 
@@ -193,8 +201,57 @@ sampling-without-replacement, vs temperature's implicit diversity).
   F1-negative — worse than one pass.
 
 **Conclusion:** conditioning is a **coverage front-end** (highest recall of any
-single-model method), not a usable reviewer on its own. It only pays with a
-downstream precision filter — exactly the high-coverage-generation +
-cross-family-agreement pairing §6 motivates. **Future work:** conditioned generation
-× cross-family/agreement filter — does the filter reclaim precision on the 67%
-coverage base?
+single-model method), not a usable reviewer on its own. It only pays if a
+downstream precision filter can recover precision *without* discarding the extra
+coverage — exactly the high-coverage-generation + cross-family-agreement pairing
+§6 motivates. §7.1 tests that pairing directly.
+
+### 7.1 Conditioned base × cross-family filter — the filter reclaims precision but conditioning is strictly dominated
+
+`conditioned-filter-analysis.ts` (zero-LLM re-analysis; reuses the conditioned union
+findings + judge cache): for each conditioned finding, count how many of six OTHER
+families (Kimi, GLM, DeepSeek, Nova, Llama4, Palmyra — never Haiku, the base's own
+family) structurally corroborate it, then keep findings with ≥ *m* corroborators.
+Every kept finding is a subset of the conditioned union, so its judge score is
+already cached. **Matched control:** the identical filter (same pool, same
+union-based corroboration, same 97 PRs) is applied to an INDEPENDENT Haiku K=3 union
+(`ladder-haiku07`) — so the two bases differ *only* in how coverage was obtained
+(explicit "find-new" conditioning vs implicit temperature diversity).
+
+| base | filter | R | P | F1 | findings/PR |
+|---|---|---|---|---|---|
+| conditioned (find-new) | raw union | 66% | 23% | 0.33 | 16.5 |
+| conditioned | × cross-family ≥1 (of 6) | 24% | 59% | 0.31 | 1.9 |
+| conditioned | × cross-family ≥2 | 9% | 31% | 0.13 | 0.5 |
+| conditioned | × Kimi+GLM ≥1 | 22% | 60% | 0.30 | 1.7 |
+| **independent (temp K=3)** | raw union | 64% | 28% | 0.37 | 13.5 |
+| **independent** | **× cross-family ≥1 (of 6)** | **30%** | **62%** | **0.37** | 2.3 |
+| independent | × cross-family ≥2 | 11% | 35% | 0.15 | 0.6 |
+| independent | × Kimi+GLM ≥1 | 29% | 62% | 0.36 | 2.2 |
+
+- **The filter DOES reclaim precision on the 67% base** — 23% → 59–60% (≥1). So the
+  literal §7 question ("can a filter recover the precision conditioning collapsed?")
+  is **yes**. But it is F1-*negative*: filtering the conditioned base drops F1
+  0.33 → 0.31 (recall craters 66% → 24%), so there is no usable operating point.
+- **Matched control is decisive: conditioning is strictly dominated.** Under the
+  *identical* filter on the *same* PRs, the plain independent-temperature base beats
+  conditioning on **every** axis — recall 30% vs 24% (**Δ −6pp**), precision 62% vs
+  59%, F1 0.37 vs 0.31. The extra coverage conditioning bought over independent
+  sampling (66% vs 64% raw) is worse than fragile: it is *net-negative* after a
+  corroboration filter. Rare-to-Haiku ⇒ rare-to-everyone, so the filter discards
+  exactly what "find-new" added, and conditioning's fabrications (16.5 f/PR) pollute
+  the filter's input enough to shave the survivors' precision too.
+- **The filter never improves F1 over the raw union it filters** — for the clean
+  independent base it is F1-*neutral* (0.37 → 0.37, sliding along an iso-F1 frontier
+  from R64/P28 to R30/P62); for the conditioned base it is F1-negative. Requiring
+  cross-family agreement is a **precision instrument**, not an F1 lever — reinforcing
+  the registered H-verify null and the paper's cross-family = precision framing.
+
+**Conclusion (closes §7):** the "coverage front-end + precision back-end" pipeline,
+instantiated with the paper's own cross-family-agreement filter, does **not** rescue
+conditioning. Plain independent temperature sampling + the same filter is strictly
+better, and *neither* beats the no-frills independent K=3 union (R64/P28/F1 0.37).
+No recombination of a *single model's* samples (temperature §6, conditioning §7) — with
+or without a downstream filter — moves past the plain-union frontier. Only
+mechanism-changing decorrelation (cross-family §2, and by extension lint/execution/
+fine-tune) shifts it. This is the whole-document thesis, now closed on both ends.
