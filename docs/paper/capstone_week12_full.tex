@@ -944,8 +944,8 @@ Unioning \emph{every} configuration we tried tops out near $0.83$ recall
 (Section~\ref{sec:ceiling}); no agreement filter, MAV-style aspect verifier, or
 read-only repository-navigating agent lifts $F_1$ above a plain independent
 union---the agent instead becomes \emph{more precise}, verifying and pruning,
-trading recall for precision like every other verification mechanism (an agentic
-pilot on c-CRAB~\cite{crab}: precision $0.20$ vs.\ diff-only $0.16$ at lower
+trading recall for precision like every other verification mechanism (a 158-PR
+agentic run on c-CRAB~\cite{crab}: precision $0.17$ vs.\ diff-only $0.13$ at lower
 recall). The unreachable residue is a division-of-labour problem, not an
 architectural one: ${\sim}65\%$ are mechanical conventions a deterministic checker
 recovers (a missing \texttt{Async} suffix at $43\%$ vs.\ the LLM's $7\%$; on its

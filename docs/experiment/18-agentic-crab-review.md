@@ -1,8 +1,9 @@
 # doc-18 — Agentic reviewer on c-CRAB (experiment ②): does agency move the ceiling?
 
-Status: **PILOT (N=20) complete.** Exploratory, not registered. Read-only navigation (no
-execution — that is experiment ③). Verdict: agency is a **precision/verification** mechanism
-here, **not** the recall lever hypothesised — it does not clear the diff-only bar.
+Status: **FULL RUN (N=158) complete** (pilot N=20 first, then scaled). Exploratory, not
+registered. Read-only navigation (no execution — that is experiment ③). Verdict, robust across
+both scales: agency is a **precision/verification** mechanism, **not** the recall lever
+hypothesised — it does not clear the diff-only recall bar.
 
 ## 0. The question
 
@@ -41,32 +42,43 @@ gated experiment ③.
 **Primary question:** does agentic recall exceed diff-only (and the passive static-context
 null)? A win means active retrieval reaches issues neither the diff nor passive context did.
 
-## 2. Results — pilot, N=20, 1 trajectory/PR, semantic τ=0.7
+## 2. Results — full run N=158, 1 trajectory/PR, semantic τ=0.7
+
+Full run (158 valid c-CRAB PRs; agentic vs diff-only, one judge cache):
 
 | arm | R | P | F1 | findings/PR |
 |---|---|---|---|---|
+| diff-only (bar) | **36%** | 13% | 0.17 | 4.5 |
+| **agentic** | 31% | **17%** | **0.20** | **2.6** |
+
+Pilot (N=20, incl. a static-context arm) agreed in direction and is retained for reference:
+
+| arm (pilot N=20) | R | P | F1 | findings/PR |
+|---|---|---|---|---|
 | static-context | 37% | 12% | 0.16 | 5.5 |
-| diff-only (bar) | **43%** | 16% | 0.22 | 5.1 |
-| **agentic** | 35% | **20%** | **0.24** | **2.9** |
+| diff-only | 43% | 16% | 0.22 | 5.1 |
+| agentic | 35% | 20% | 0.24 | 2.9 |
 
-Agentic tool usage: mean 11.2 turns, 12.3 tool calls/PR (it uses the budget).
+Agentic tool usage: ~11.4 turns, ~12 tool calls/PR (it uses the budget). The pilot's static
+arm reproduced doc-16's passive-context null (37% ≈ diff-only), so the full run dropped it.
 
-- static ≈ diff-only (slightly lower) — **reproduces doc-16's passive-context null** on this
-  N=20 slice: whole-file+deps context does not help, and if anything the extra tokens dilute.
-- **Agentic does NOT clear the recall bar: R 35% < diff-only 43%.** The primary hypothesis —
-  active navigation reaches the hard core the diff misses — is **not supported** at pilot scale.
-- **Agentic wins on precision (20%, highest) and F1 (0.24, highest) — via SELECTIVITY.** It
-  reports far fewer findings (2.9/PR vs ~5): it explores (11 turns), then *prunes* concerns it
-  cannot verify. Read-only agency acts as a **verify-before-report** filter, not a coverage lever.
+- **Agentic does NOT clear the recall bar — at BOTH scales.** Full: R 31% < diff-only 36%
+  (pilot: 35% < 43%). The primary hypothesis — active navigation reaches the hard core the diff
+  misses — is **not supported**.
+- **Agentic wins on precision and F1 — via SELECTIVITY, at both scales.** Full: P 17% vs 13%,
+  F1 0.20 vs 0.17, at **2.6 findings/PR vs 4.5** (pilot: P 20 vs 16, F1 0.24 vs 0.22, 2.9 vs 5.1).
+  It explores (~11 turns) then *prunes* concerns it cannot verify: read-only agency is a
+  **verify-before-report** filter, not a coverage lever. The direction is identical at N=20 and
+  N=158, so it is a property of the mechanism, not a small-sample artifact.
 
 ## 3. Interpretation
 
-The pilot resolves to the "agentic ≲ 43%" branch, with a twist worth stating precisely:
+Both scales resolve to the same branch, with a twist worth stating precisely:
 **read-only agency does not move recall on c-CRAB — it makes the reviewer more precise.** Given
 the diff plus tools, Haiku spends its turns *checking* candidate concerns against the real
 source and *dropping* the ones it cannot substantiate, so it emits ~40% fewer findings than the
-diff-only reviewer at higher precision (20% vs 16%) and a marginally better F1 (0.24 vs 0.22).
-It does not surface *more* true issues (recall 35% ≤ 43%).
+diff-only reviewer at higher precision (full N=158: 17% vs 13%) and a better F1 (0.20 vs 0.17).
+It does not surface *more* true issues (recall 31% ≤ 36%; pilot 35% ≤ 43%).
 
 Why agency does not buy coverage here: (a) the ~15% hard-core (§10) is small, and read-only
 navigation without execution cannot reach the runtime-manifesting part of it; (b) c-CRAB's GT is
@@ -86,23 +98,23 @@ hard-core **execution**, not just navigation (experiment ③).
 
 ## 4. Caveats
 
-- **Pilot N=20 is noisy** and GT is **sparse + specific** (often 1 human comment/PR on one
-  file); absolute recall is low for all arms and single-run (no union). The *relative* three-
-  arm comparison on identical PRs is the signal, not the absolute numbers.
+- GT is **sparse + specific** (often 1 human comment/PR on one file); absolute recall is low
+  for all arms and single-run (no union). The *relative* comparison on identical PRs is the
+  signal, not the absolute numbers. (N=158 now, so small-sample noise is no longer the concern.)
 - **Read-only** tools only; no execution (③). 1 trajectory/PR (no temperature/family union).
-- **Large-repo latency:** on big repos (ansible) the agent's `grep`/`read_file` trigger
-  on-demand blob fetches from the blobless clone — slow. The full 184-PR run needs prefetch /
-  tighter grep scoping / a per-PR timeout.
+- **Large-repo latency (fixed):** on big repos (ansible) the agent's `grep`/`read_file` trigger
+  on-demand blob fetches from the blobless clone; the run now caps every git op at 45s
+  (`CRAB_OP_TIMEOUT_MS`) and writes runs incrementally + resumes, so a stall degrades one PR
+  instead of hanging the run. (A model returning `submit_findings.findings` as a non-array also
+  crashed the first attempt at PR 82 — now guarded; the resume reused the 81 persisted PRs.)
 - Judge = the same Llama-3.3-70B semantic pair judge as elsewhere; findings→GT matching is
   file + line-range OR semantic ≥ τ.
 
 ## 5. Next
 
-- **Full 184-PR run is now optional / lower priority.** The pilot's recall verdict is negative
-  (agency ≤ diff-only), so scaling would firm up the precision/selectivity numbers but is
-  unlikely to overturn the direction. Worth it only if the co-authors want the larger-N F1
-  point; the large-repo latency fix (45s git-op cap + incremental writes, now committed) makes
-  it viable.
+- **Full run done (N=158): verdict confirmed.** Scaling 8× did not overturn the pilot — agency
+  ≤ diff-only on recall, higher precision/F1 via selectivity. No larger run needed for this
+  question.
 - **Experiment ③ (execution) is the better-motivated next lever.** The pilot shows *read-only*
   agency does not reach the hard core; the runtime-manifesting slice (races, dynamic-import
   failures, harmful deletions — §10) plausibly needs *running* the code, not just reading it

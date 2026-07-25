@@ -130,7 +130,8 @@ async function reviewOne(inst: Inst): Promise<{ findings: ReviewFinding[]; turns
     const uses = blocks.filter((b) => b.toolUse);
     const submit = uses.find((b) => b.toolUse?.name === "submit_findings");
     if (submit) {
-      const raw = (submit.toolUse?.input?.findings ?? []) as any[];
+      const rawF = submit.toolUse?.input?.findings; // a model may return a non-array (string/object) here
+      const raw: any[] = Array.isArray(rawF) ? rawF : [];
       const findings: ReviewFinding[] = raw.filter((f) => f && f.file && (f.description || f.title)).map((f, i) => ({
         id: `${inst.instanceId}-af-${i}`, title: String(f.title ?? f.description ?? "").slice(0, 120),
         category: String(f.category ?? "correctness"), severity: (["low", "medium", "high", "critical"].includes(String(f.severity)) ? String(f.severity) : "medium") as ReviewFinding["severity"],
@@ -151,10 +152,15 @@ async function reviewOne(inst: Inst): Promise<{ findings: ReviewFinding[]; turns
 }
 
 // ── generate agentic runs ──
-const agenticRuns: BenchmarkRun[] = [];
-let done = 0, totTools = 0, totTurns = 0;
 mkdirSync(dirname(resolve(AGENTIC_OUT)), { recursive: true });
+// resume: reuse any PRs already persisted (incremental writes) so a re-run continues, not restarts.
+const agenticRuns: BenchmarkRun[] = existsSync(resolve(AGENTIC_OUT)) ? (JSON.parse(readFileSync(resolve(AGENTIC_OUT), "utf8")) as BenchmarkRun[]) : [];
+const doneIds = new Set(agenticRuns.map((r) => r.instanceId));
+if (doneIds.size) console.log(`resuming: ${doneIds.size} PRs already persisted in ${AGENTIC_OUT}`);
+const startDone = doneIds.size;
+let done = startDone, totTools = 0, totTurns = 0;
 for (const inst of instances) {
+  if (doneIds.has(inst.instanceId)) continue;
   const { findings, turns, toolCalls } = await reviewOne(inst);
   totTools += toolCalls; totTurns += turns;
   agenticRuns.push({ runId: `${inst.instanceId}#agentic`, datasetId: "crab-agentic", instanceId: inst.instanceId, snapshotId: inst.instanceId, experimentId: `${inst.instanceId}#agentic`, architecture: "agentless", producedFindings: findings, groundTruth: inst.groundTruth, rawDiff: inst.rawDiff });
@@ -193,5 +199,6 @@ const semantic = new GroundTruthEvaluator({ matcher: new IssueMatcher({ semantic
 const macro = (runs: BenchmarkRun[]) => { const rs = runs.map((r) => semantic.evaluate(r)); const n = rs.length || 1; return { P: rs.reduce((a, x) => a + x.precision, 0) / n, R: rs.reduce((a, x) => a + x.recall, 0) / n, F1: rs.reduce((a, x) => a + x.f1, 0) / n, f: runs.reduce((a, r) => a + r.producedFindings.length, 0) / n }; };
 console.log(`\n=== CRAB three-arm comparison (semantic τ=${TAU}, n=${instances.length} PRs, 1 trajectory/PR) ===`);
 for (const { label, runs } of arms) { const m = macro(runs); console.log(`  ${label.padEnd(15)} P=${(m.P * 100).toFixed(0)}%  R=${(m.R * 100).toFixed(0)}%  F1=${m.F1.toFixed(2)}  findings/PR ${m.f.toFixed(1)}`); }
-console.log(`\nagentic tool usage: mean ${(totTurns / instances.length).toFixed(1)} turns, ${(totTools / instances.length).toFixed(1)} tool calls/PR.`);
+const newN = Math.max(1, done - startDone);
+console.log(`\nagentic tool usage (this run's ${done - startDone} new PRs): mean ${(totTurns / newN).toFixed(1)} turns, ${(totTools / newN).toFixed(1)} tool calls/PR.`);
 console.log(`Read: agency helps iff agentic recall > diff-only (and > static-context, the doc-16 passive null). EXPLORATORY, read-only tools, 1 trajectory/PR.`);
