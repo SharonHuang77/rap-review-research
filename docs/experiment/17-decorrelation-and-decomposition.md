@@ -255,3 +255,46 @@ No recombination of a *single model's* samples (temperature §6, conditioning §
 or without a downstream filter — moves past the plain-union frontier. Only
 mechanism-changing decorrelation (cross-family §2, and by extension lint/execution/
 fine-tune) shifts it. This is the whole-document thesis, now closed on both ends.
+
+## 8. Oracle ceiling + complementarity — the reachable set caps at ~83%
+
+`oracle-complementarity.ts` (zero-LLM; pure set algebra over every cached method's
+findings + its own judge cache). Two artifacts, coverage on the §6/§7.1 structural+
+semantic proxy (τ=0.7), macro over 97 PRs. Each source = its FULL multi-run union, so
+solo numbers sit ~3pp above the §2 single-draw ladder by construction.
+
+**(a) Oracle ceiling.** Union recall across ALL 11 configurations we ran (7 families +
+conditioned + Haiku temperature sweep T0/0.3/0.7/1.0) = **83%** — the fraction of
+injected ground truth *reachable by SOME configuration*. Best single method
+(conditioned) = 68%, so the **gap to the ceiling is ~15pp**. But leave-one-out unique
+marginals are tiny — conditioned +1.9pp, temp-T1.0 +1.5, kimi +1.4, everything else
+≤1pp, nova/palmyra +0.0 — i.e. **no single source is the missing piece; the ceiling is
+covered redundantly and the 15pp is spread thin across decorrelated sources.** Removing
+any one config barely moves it, so 83% is a robust reachable-set estimate.
+
+**(b) The ~17% unreachable core.** Even the union of *everything we tried* leaves ~17%
+of the injected defects untouched by any pure-LLM, diff-scoped configuration. This is
+the same wall as doc-13's "both-miss hard core" (harmful deletions, cross-file
+consistency, info outside the diff) and doc-16's passive-context null: it is not a
+decorrelation problem (more families/temps/conditioning won't reach it) but an
+**information/agency problem** — it motivates the agentic (§②, SWE-Review/c-CRAB) and
+execution (§③, SWE-Doctor) levers, not more sampling.
+
+**(c) Complementarity matrix** (pairwise union recall; diagonal = solo):
+
+| + | homo-T0.7 | kimi | glm | deepseek | nova | llama4 | palmyra | conditioned |
+|---|---|---|---|---|---|---|---|---|
+| **homo-T0.7** | 64 | 74 | 71 | 66 | 64 | 66 | 65 | 74 |
+| **kimi** | 74 | 63 | 69 | 66 | 63 | 65 | 64 | 75 |
+| **glm** | 71 | 69 | 55 | 60 | 56 | 59 | 57 | 73 |
+| **conditioned** | 74 | 75 | 73 | 70 | 68 | 69 | 68 | 68 |
+
+Most complementary pairs (union − best-solo): homo-T0.7+kimi **+9pp**, homo-T0.7+glm
++7, kimi+glm +6, and conditioned pairs well with everything (+6–7pp). The sparse
+same-provider families (nova/palmyra/llama4) add ~0 unique coverage — redundant, not
+decorrelated. This is the quantitative substrate of the §2 "+3pp cross-family" result:
+the lift is real precisely because *different pretraining families cover disjoint true
+issues* (biggest off-diagonal jumps are cross-family), while same-family draws
+(temperature, conditioning) mostly re-cover the same reachable subset. **Takeaway for
+the paper:** decorrelation buys coverage only up to an ~83% diff-scoped ceiling; the
+last ~17% is an agency/execution problem, not a sampling one.
