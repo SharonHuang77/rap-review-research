@@ -398,5 +398,45 @@ hard functional core needing repo agency/execution. This is the strongest single
 confirmation of doc-13's "three levers, three tools" map: mechanical conventions → lint,
 reasoning bugs → decorrelated LLMs (already 89% covered), hard functional → agency. The
 one lever that would move the diff-scoped ceiling most is the cheapest: **wire in a
-linter.** EXPLORATORY; coverage proxy lower-bounds the true hard core; the mechanical/
-conceptual split is a keyword heuristic.
+linter** — measured in §11. EXPLORATORY; coverage proxy lower-bounds the true hard core;
+the mechanical/conceptual split is a keyword heuristic.
+
+## 11. Lint ∪ LLM-union — one linter out-recalls eleven models on mechanical rules
+
+§10 said the residue is "mostly a linter's job" — `lint-hybrid-ceiling.ts` (zero-LLM)
+measures it where a checker actually exists: the two convention-authored pilot repos
+(aspnetcore+Ghost, 20 PRs, 50 rule-GT) with 6 frozen re-implementations of their
+published lint rules (copied verbatim from doc-13's `lint-baseline.ts`), unioned against
+the full 11-config LLM union (§8).
+
+| convention rule-GT stratum | LLM-union (11 configs) | deterministic lint | hybrid (lint∪LLM) |
+|---|---|---|---|
+| checker-targeted (a line-local lint rule exists) | 46% (13/28) | **54%** (15) | **61%** (17) |
+| framework/policy (no line-local rule) | 82% (18/22) | 0% | 82% |
+| all rule-GT | 62% | 30% | 70% |
+
+- **On the mechanical rules, ONE deterministic linter (54%) out-recalls the ENTIRE
+  11-model decorrelated union (46%).** This is the sharpest statement of §10's
+  correlated-blind-spot result: eleven models sampling the same reachable set still lose
+  to a single AST check on the defects that check targets.
+- **Lint is complementary, not redundant.** Hybrid 61% > both lint 54% and union 46% on
+  the checker-targeted stratum: of the 15 checker-targeted rule-GT the *full union*
+  misses, lint recovers **4 (27%)** — genuine coverage decorrelated sampling cannot buy.
+- **But the realized net lift is modest and a lower bound.** Over all 106 pilot GT
+  (functional+convention), hybrid raises recall 79% → 83% (**+4pp**) — because only 6
+  rules have a checker here, and the union already covers framework/policy conventions
+  (82%) and functional bugs (§10, 89%) well. §10's "~65% lint-targetable" core is the
+  *potential* if the relevant linters (mypy/ruff type-annotations, SwiftLint, full Biome,
+  naming/co-location analyzers) were wired in across all 8 repos and languages; the 6-check
+  pilot subset realises only part of it.
+
+**Conclusion (closes §11).** The cheapest ceiling-mover is confirmed and quantified: a
+deterministic linter recovers convention defects that no amount of cross-family/temperature/
+conditioning sampling reaches, and on its target rules a single checker beats the whole
+model union. But it is a *complement* — it does nothing for the framework/policy
+conventions and functional bugs the LLM union already handles, and nothing for the ~15%
+functional hard-core (§②/③). The production lesson is the doc-13 division of labour, now
+end-to-end: **lint the mechanical, union-sample across families for the rest, and reserve
+agency/execution for the hard functional core** — not one architecture, but three tools.
+(Small n: 28 checker-targeted GT on 2 repos; magnitudes are indicative, the direction is
+robust and matches doc-13's async-suffix 43%-vs-7%.)
