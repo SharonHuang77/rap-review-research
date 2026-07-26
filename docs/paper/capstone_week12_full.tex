@@ -86,9 +86,24 @@ different: findings corroborated by ${\geq}2$ independent model families
 reach precision 0.72 vs.\ 0.54 single-arm at equal-or-higher F1, and
 findings all three families agree on are real 89\% of the time vs.\ 54\%
 for one model repeating itself across three runs (gap CI $[0.29, 0.41]$;
-judge-invariant, $\kappa{=}0.95$ across two independent pair judges). In
+judge-invariant, $\kappa{=}0.95$ across two independent pair judges). On the
+recall axis the diversity effect is small and saturating---unioning independent
+families adds only ${\sim}3$ points of coverage over temperature-matched
+sampling of a single model and plateaus within three families---so the
+multi-agent payoff is a precision effect, not a coverage one. In
 multi-agent code review, diversity pays on the verification axis, not the
-generation axis.
+generation axis. Exploratory follow-ups then locate the limits of that
+generation axis: unioning \emph{every} configuration we tried---seven model
+families, a temperature sweep, and a conditioned resampler---reaches only
+${\approx}0.83$ recall, and no downstream agreement filter, aspect verifier, or
+read-only repository-navigating agent lifts $F_1$ above a plain independent
+union. The unreachable residue is not a sampling problem but a tooling one:
+${\sim}65\%$ are mechanical conventions a deterministic linter recovers---on its
+target rules a single linter out-recalls all eleven models---and the rest a
+functional hard-core that plausibly needs execution, not more agents. Multi-agent
+code review is thus best read as error decorrelation with a precision payoff and a
+coverage ceiling: the lever is the right tool per defect class, not the
+communication topology.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -166,7 +181,25 @@ Our contributions are:
   model families is a quantified, judge-invariant precision instrument
   (89\% vs.\ 54\% at full agreement)---plus a three-judge audit showing
   benchmark ground truth is materially incomplete.
+  \item An exploratory map of the \emph{limits} of the generation axis: a
+  ${\approx}0.83$ diff-scoped recall ceiling, an anatomy of its unreachable
+  residue (${\sim}65\%$ lint-targetable conventions, ${\sim}15\%$ a functional
+  hard-core), and a demonstration that a deterministic linter out-recalls an
+  eleven-model union on its target rules---recasting multi-agent review as a
+  per-defect-class tooling problem rather than an architecture one.
 \end{itemize}
+
+\textbf{A note on scope and framing.} The registered study isolates
+communication \emph{topology}; its answer is largely null, and that null is what
+opens the paper's larger, exploratory thesis. Every effect we can move reduces to
+one axis---how \emph{decorrelated} the reviews are---and that axis pays on
+precision (independent families agreeing on real defects) far more than on
+coverage. Sections~\ref{sec:ladder}--\ref{sec:ceiling} push the coverage axis to
+its ceiling and show, exploratorily, that no recombination of a single model's
+samples and no read-only agent clears it; the residue is a division-of-labour
+problem---lint the mechanical conventions, union-sample across independent
+families for functional bugs, and reserve execution for the hard functional core.
+We mark confirmatory and exploratory claims explicitly throughout.
 
 % =============================================================================
 \section{Related Work}
@@ -589,6 +622,42 @@ Consensus      & 0.322 & 0.536 & 0.369 & 0.678 \\
 \end{tabular}
 \end{table}
 
+\subsection{Model capability is not a defect-type-targeted lever}
+\label{sec:capability}
+A registered amendment tested whether a stronger model's advantage concentrates
+on reasoning-limited functional bugs (a capability~$\times$~defect-type
+interaction). On the 80-PR disjoint remainder, agentless-ungrounded, the primary
+difference-in-differences is \textbf{null}:
+$\mathrm{DiD}{=}\Delta\text{recall}_{\text{func}}-\Delta\text{recall}_{\text{rule}}
+{=}{-}1.8$ points (CI $[-8.6, 5.5]$, $p{=}0.68$). Sonnet~4.5 improves both types
+modestly over Haiku (functional $0.70{\to}0.74$, rule $0.32{\to}0.37$) at equal
+or better precision---a broad, undirected lift, not a targeted one. The pilot's
+$+10$-point functional-only interaction reproduces only on the two
+convention-dense pilot repositories and vanishes elsewhere. Capability/scale
+buys uniform recall, not a defect-class-specific capability.
+
+\subsection{No generation-side structure beats compute-matched sampling}
+\label{sec:decomp}
+The specialization null (Sec.~\ref{sec:generation}) is not specific to
+\emph{roles}; two further ways to structure the generation side also fail
+(exploratory). \textbf{Module decomposition:} partitioning each PR by code
+module, reviewing every module with its own agent, and unioning beats a single
+whole-PR review by ${+}6.4$ points of recall ($p{=}0.016$, $N{=}50$)---but that
+is the ${\sim}2.6{\times}$ extra compute, not the decomposition: at a matched
+call budget, module-union \emph{trails} plain multi-sampling on the
+multi-module-GT subset ($0.54$ vs.\ $0.57$; $\tilde\Delta{=}{-}0.029$,
+$p{=}0.44$, $n{=}24$). \textbf{Error-type specialists:} prompting one model to
+report \emph{only} convention issues and another \emph{only} functional bugs,
+then unioning, is worse---focus \emph{reduces} per-type recall (convention
+specialist $24\%$ of rule violations vs.\ the generalist's $32\%$; functional
+$59\%$ vs.\ $68\%$) because ``report only $X$'' suppresses output ($5.3$
+findings/PR vs.\ $16.1$), and the team reaches recall $0.47$, below the
+generalist ($0.50$) and the same-budget baselines (multi-sample $0.58$,
+cross-family $0.60$). Prompt ``personas'' on a single model are a negative
+decorrelation source. Type specialization pays only when it changes the
+detection \emph{mechanism} (a deterministic linter, execution, or an independent
+model family), not the prompt.
+
 \subsection{H-verify: the pilot's self-consistency rescue does not
 replicate}
 \label{sec:hverify}
@@ -667,6 +736,42 @@ Cross-family $\times$3    & 28\% (419) & 51\% (114) & \textbf{89\% (137)} \\
 \\[2pt]{\footnotesize Cell $=$ golden-match rate ($n$ clusters).}
 \end{table}
 
+\subsection{The recall axis is a decorrelation ladder (temperature-dominated)}
+\label{sec:ladder}
+The confirmed cross-family result above is a \emph{precision} instrument; on the
+orthogonal \emph{recall} axis the cross-family gain is real but small once
+compute is matched fairly (exploratory). Table~\ref{tab:ladder} unions $K$
+agentless reviews two ways on the same 97 Qodo PRs: $K$ temperature-diverse
+samples of one model (Haiku, $T{=}0.7$) vs.\ $K$ distinct families.
+Temperature-sampling a single model already reaches $0.61$ recall at $K{=}3$;
+adding whole families lifts it only to $0.64$---a ${+}3$-point diversity bonus
+that saturates by ${\sim}3$--$4$ families (ceiling ${\sim}0.65$--$0.66$; findings
+keep rising with flat recall and eroding precision). Most union-recall gain is a
+single model recovering issues it can find but does not surface in one pass
+(self-coverage); cross-family adds only the thin complement it cannot reach at
+any temperature. A same-model union at $T{=}0$ (near-identical runs) gives
+essentially nothing (${+}0.9$ points), so comparing cross-family against a
+$T{=}0$ baseline overstates the bonus; the fair, temperature-matched figure is
+${+}3$ points.
+
+\begin{table}[t]
+\caption{Union recall by number of draws $K$ (semantic matching, 97 Qodo PRs).
+Homo $=$ one model (Haiku) at $T{=}0.7$; hetero $=$ Haiku plus one distinct
+family per rung (Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra).}
+\label{tab:ladder}
+\centering
+\begin{tabular}{lccccccc}
+\toprule
+$K$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
+\midrule
+Homo ($T{=}0.7$)  & 0.49 & 0.58 & 0.61 & --- & --- & --- & --- \\
+Hetero (families) & 0.51 & 0.61 & 0.64 & 0.65 & 0.65 & 0.66 & 0.66 \\
+\bottomrule
+\end{tabular}
+\\[2pt]{\footnotesize Diversity bonus (hetero $-$ homo) $=$ ${+}0.03$ at
+$K{=}2,3$. Family order affects per-step marginals, not the $K{=}\max$ total.}
+\end{table}
+
 \subsection{Where the signal lives}
 Stratifying the 80-PR set by Qodo's two injected defect types shows the
 cross-family signal is carried by the \emph{hard} class. Of the in-set
@@ -674,13 +779,43 @@ functional bugs (217), 80\%/61\%/43\% are caught by ${\geq}1/2/3$
 independent families, versus 45\%/26\%/18\% of the project-specific rule
 violations (220): a generic reviewer cannot know repository-local
 conventions, but universal functional defects are exactly where
-independent families converge. The ${\geq}2$-family ``trustworthy'' set is
+independent families converge. The ${\geq}1$-family coverage figure is a union
+over three families and is therefore temperature-dominated (a single model
+sampled three times reaches most of it, Table~\ref{tab:ladder}); the
+cross-family contribution is carried by the agreement-depth (precision) result
+above, not by coverage volume. The ${\geq}2$-family ``trustworthy'' set is
 52\% functional true positives, 20\% rule true positives, and 28\%
 golden-unmatched. False-positive anatomy adds two correctives: 21--32\% of
 golden-unmatched findings are near-misses within ten lines of a real
 defect (localization slop, not hallucination), and 91\% of false positives
 are low/medium severity---the arms' high-severity findings are almost
 always real.
+
+\subsection{The diff-scoped ceiling and a division of labour}
+\label{sec:ceiling}
+Pushing decorrelation to its limit---the union of \emph{every} configuration we
+ran (eleven sources: seven model families, a conditioned ``find-new'' resampling
+arm, and a temperature sweep)---reaches only $0.83$ recall on the 97-PR set, and
+leave-one-out shows no single source contributes more than ${\sim}2$ points, so the
+ceiling is robust (exploratory). The residue is not random. Functional bugs are
+$89\%$ robustly reachable (covered by ${\geq}2$ sources), whereas $36\%$ of the
+project-specific rule violations are reached by \emph{no} configuration: reasoning
+errors decorrelate across models, but a mechanical-convention blind spot is
+\emph{correlated}, so eleven draws miss the same violations. Categorising the
+unreachable core, ${\sim}65\%$ are mechanical conventions a deterministic linter
+targets and ${\sim}15\%$ are a hard functional core (cross-file renames, dynamic
+imports, races, harmful deletions) invisible to a diff-scoped reviewer. Wiring in a
+linter confirms the division of labour: on the two convention-authored pilot
+repositories, a single deterministic checker out-recalls the entire eleven-model
+union on exactly the rules it targets ($0.54$ vs.\ $0.46$), and their hybrid reaches
+$0.61$---the linter recovering ${\sim}27\%$ of the rule violations no amount of
+sampling reached. Multi-agent review thus has three separable jobs, each with its
+own tool: \emph{lint} the mechanical conventions, \emph{union-sample across
+families} for functional bugs, and reserve \emph{agentic retrieval or execution} for
+the hard functional core. No precision back-end changes this picture: neither
+cross-family agreement (Section~\ref{sec:hetero}) nor MAV-style decomposed aspect
+verification lifts $F_1$ above a plain independent union---filters and verifiers
+trade recall for precision but do not move the frontier.
 
 \subsection{Ground-truth completeness: direction robust, magnitude
 definitional}
@@ -804,7 +939,23 @@ signal on top of any single reviewer. Future work: human $\kappa$
 validation of the pair judge, fixed-definition human adjudication of
 benchmark completeness, the industrial-portal arm, the complexity
 interaction, and replication on execution-grounded review benchmarks such
-as c-CRAB~\cite{crab}.
+as c-CRAB~\cite{crab}. Exploratory probes then map the boundary the generation axis cannot cross.
+Unioning \emph{every} configuration we tried tops out near $0.83$ recall
+(Section~\ref{sec:ceiling}); no agreement filter, MAV-style aspect verifier, or
+read-only repository-navigating agent lifts $F_1$ above a plain independent
+union---the agent instead becomes \emph{more precise}, verifying and pruning,
+trading recall for precision like every other verification mechanism (a 158-PR
+agentic run on c-CRAB~\cite{crab}: precision $0.17$ vs.\ diff-only $0.13$ at lower
+recall). The unreachable residue is a division-of-labour problem, not an
+architectural one: ${\sim}65\%$ are mechanical conventions a deterministic checker
+recovers (a missing \texttt{Async} suffix at $43\%$ vs.\ the LLM's $7\%$; on its
+target rules one checker out-recalls all eleven models), while passive whole-file
+context does not help ($0.37{\to}0.35$, n.s.); the rest is a functional
+hard-core---cross-file renames, dynamic imports, races---that plausibly needs
+\emph{execution}, not more agents or more reading~\cite{swereview}. The organizing
+lesson is a division of labour: lint the mechanical, union-sample across
+independent families for the rest, and reserve agentic and execution budget for
+the hard functional core.
 
 \section*{Acknowledgment}
 The authors thank their capstone advisors Lino Coria Mendoza and Yvonne
@@ -825,6 +976,10 @@ framework,'' in \emph{Proc. ICLR}, 2024.
 \bibitem{agentless}
 C.~S. Xia, Y.~Deng, S.~Dunn, and L.~Zhang, ``Agentless: Demystifying
 LLM-based software engineering agents,'' arXiv:2407.01489, 2024.
+
+\bibitem{swereview}
+R.~Wang et al., ``SWE-Review: Closing the loop on issue resolution with agentic
+code review,'' arXiv:2607.06065, 2026.
 
 \bibitem{swebench}
 C.~E. Jimenez et al., ``SWE-bench: Can language models resolve real-world
