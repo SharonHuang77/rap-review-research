@@ -298,10 +298,14 @@ latency, and cost-per-TP (H-efficiency).
 On SWE-PRBench the shape replicates in natural data: Generalists-3 raises
 coverage of human comments (0.68 vs.\ 0.51, Holm $p{=}0.001$; Hierarchical 0.63,
 $p{=}0.05$), but F1 is a four-way tie (0.325 vs.\ 0.329--0.357, all n.s.,
-$|\delta|{\le}0.06$). An exploratory Sonnet~4.5 pilot preserves the headline
-claims---the single-pass F1 lead and the specialization null both hold---though
-the Consensus arm's rank \emph{among} the multi-agent arms shifted; the
-confirmatory robustness arm is deferred (Section~\ref{sec:threats}).
+$|\delta|{\le}0.06$). A registered Sonnet~4.5 robustness arm, now completed at
+confirmatory scale ($N{=}99$), confirms the ordering is not a Haiku artifact:
+every registered conclusion replicates---the specialization null (Hierarchical
+vs.\ Generalists-3 recall median paired $\tilde\Delta{=}0.000$), Agentless F1
+dominance (0.547 vs.\ 0.389--0.428, Holm $p{<}0.001$, $\delta$ 0.32--0.45), the
+recall-not-F1 pattern, and H-verify's failure. Absolute F1 rises with the
+stronger model (Agentless $0.487{\to}0.547$) but the ranking and every claim
+are model-robust.
 
 Finally, the pre-registered rescue fails. A self-consistency filter (keep
 findings recurring in ${\geq}2$ of 3 runs) leaves Hierarchical at 0.378
@@ -403,7 +407,12 @@ source---a \emph{correlated} blind spot) and ${\sim}15\%$ a repo-integrated
 functional hard-core. A deterministic linter out-recalls the eleven-source union
 on its target convention rules (0.54 vs.\ 0.46; hybrid 0.61), so the remaining
 limitation is evidence, not model diversity---and no precision back-end
-(agreement or aspect verification) lifts F1 above a plain union.
+(agreement or aspect verification) lifts F1 above a plain union. The
+saturation-to-a-ceiling phenomenon is not Qodo-specific: on 50 c-CRAB
+PRs~\cite{crab} (real review comments---a different oracle), unioning the same
+seven families lifts comment coverage from 36\% (Haiku alone) to a 55\% ceiling
+that saturates by the second-to-third family---a different absolute value under a
+different oracle, but the identical plateau.
 
 \begin{table}[t]
 \caption{Union recall by number of draws $K$ (semantic matching, 97 Qodo PRs).
@@ -545,9 +554,10 @@ $-0.119$ on complex PRs, Holm $p{=}1.0$).
   specialization from sampling, and evaluation replays deterministically.
   \item \textbf{External.} Qodo is synthetic-injection, so absolute scores sit on
   a favorable setting (within-benchmark comparisons hold); SWE-PRBench and E3
-  partly offset this. The Sonnet~4.5 robustness arm at confirmatory scale is
-  deferred (cost prohibitive), so within-multi-agent-arm ranking
-  generalizability is a limitation, not a claim; the exploratory extensions are
+  partly offset this. The Sonnet~4.5 robustness arm has now completed at
+  confirmatory scale ($N{=}99$) and replicates every registered conclusion
+  (Section~\ref{sec:generation}), so model-robustness of the ranking is shown
+  rather than assumed; the exploratory extensions are
   small-$n$, single-benchmark probes (execution directional, $n{=}6$). Headline
   claims are confirmatory (registered sizes, paired tests, CIs, Holm); finer
   stratifications, RQ3, and the ceiling/capability/execution extensions are
