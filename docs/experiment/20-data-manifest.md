@@ -18,8 +18,15 @@ s3://rap-review-research-data-106189426706/
     ├── module-arm/          # doc-17: module/ladder/specialist/temp/conditioned/
     │                        #   ceiling/lint arms (~28 MB)
     ├── data/crab-stage4.jsonl  # c-CRAB benchmark import (12 MB)
-    └── swe-run/             # doc-19: SWE-bench no-op preds + FAIL_TO_PASS
-                             #   tracebacks + reviewer meta (~1 MB)
+    ├── swe-run/             # doc-19: SWE-bench no-op preds + FAIL_TO_PASS
+    │                        #   tracebacks + reviewer meta (~1 MB)
+    ├── sonnet-arm/          # registered Sonnet 4.5 robustness arm, 99 Qodo PRs
+    │                        #   x 4 arms x 3 runs (~29 MB). Chunked runs/caches
+    │                        #   plus qodo-all-* (n=100, includes the legacy
+    │                        #   swe-1 fold-in) and qodo99-runs.json (the Qodo-only
+    │                        #   set the paper reports).
+    └── ceiling-crab/        # ceiling generalization: 6 families x 50 c-CRAB PRs
+                             #   diff-only + Haiku anchor subset (~2 MB)
 ```
 
 ## Download
@@ -34,6 +41,8 @@ aws s3 sync $B/exploratory/crab-arm/              crab-arm/
 aws s3 sync $B/exploratory/module-arm/            module-arm/
 aws s3 cp   $B/exploratory/data/crab-stage4.jsonl data/benchmark/crab-stage4.jsonl
 aws s3 sync $B/exploratory/swe-run/               swe-run/   # any local path; scripts take SWE_RUN env
+aws s3 sync $B/exploratory/sonnet-arm/            sonnet-arm/
+aws s3 sync $B/exploratory/ceiling-crab/          ceiling-crab/
 ```
 
 ## Number → doc → replay script
@@ -54,6 +63,8 @@ aws s3 sync $B/exploratory/swe-run/               swe-run/   # any local path; s
 | Agentic precision 0.17 vs 0.13 (N=158) | doc-18 | `crab-arm/` + `crab-stage4.jsonl` | `scripts/crab-agentic-eval.ts`, `crab-analysis.ts` |
 | Light repro ~15% reachable (n=20) | doc-19 §1-4 | `module-arm/` (findings) | `scripts/exec-repro-poc.ts` |
 | Reviewer-on-top 1/6→5/6; goldInTb 25%→100% | doc-19 §6 | `swe-run/` | `scripts/swe_runtime_data.py` → `scripts/swe-reviewer-eval.ts` (`RUN_ID=revrt META_FILE=reviewer_meta_rt.json`; flask batch: `revnoop`/`reviewer_meta.json`) |
+| Sonnet robustness arm: F1 0.546 vs 0.388–0.425; H2 0.636 vs 0.672 (p=0.012) | paper §IV-A | `sonnet-arm/` | `RUNS_IN=sonnet-arm/qodo99-runs.json CACHE_IN=sonnet-arm/qodo-all-cache.json PHASE2_OUT_DIR=sonnet-arm node scripts/phase3-stats.ts` |
+| c-CRAB ceiling 0.36→0.55, plateau by ~3 families | paper §IV-E | `ceiling-crab/` | `HAIKU_RUNS=ceiling-crab/haiku-runs.json HAIKU_CACHE=ceiling-crab/haiku-cache.json FAMILIES="Kimi:…/kimi-runs.json:…/kimi-cache.json,GLM:…,DeepSeek:…,Llama4:…,Nova:…,Palmyra:…" node scripts/compute-ladder.ts` (saved output: `ceiling-crab/crab-ladder-result.txt`) |
 
 Notes: the doc-19 §6 *eval* arms call Bedrock live (2 calls/instance) — the
 harvested tracebacks in `swe-run/` are the fixed inputs, and the printed
