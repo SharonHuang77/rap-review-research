@@ -305,8 +305,12 @@ every registered conclusion replicates---the specialization null (Hierarchical
 vs.\ Generalists-3 recall median paired $\tilde\Delta{=}0.000$), Agentless F1
 dominance (0.547 vs.\ 0.389--0.428, Holm $p{<}0.001$, $\delta$ 0.32--0.45), the
 recall-not-F1 pattern, and H-verify's failure. Absolute F1 rises with the
-stronger model (Agentless $0.487{\to}0.547$) but the ranking and every claim
-are model-robust.
+stronger model (Agentless $0.487{\to}0.547$) and the headline ordering---the
+single-pass baseline above every multi-agent arm---is unchanged. The ranking
+\emph{within} the multi-agent arms is not stable, however: Consensus and
+Hierarchical swap under Sonnet (0.428 vs.\ 0.423, against 0.369 vs.\ 0.378 under
+Haiku), so we claim model-robustness for the registered conclusions and the
+headline ordering, not for the ordering among the multi-agent arms.
 
 Finally, the pre-registered rescue fails. A self-consistency filter (keep
 findings recurring in ${\geq}2$ of 3 runs) leaves Hierarchical at 0.378
@@ -318,7 +322,11 @@ its confident errors---which motivates the next section.
 \begin{table}[t]
 \caption{E1 (Qodo, 99 PRs): review quality and inference overhead. Agentless is
 precision- and F1-dominant; extra agents buy recall at 3--9$\times$ the calls.
-FDR $=1-$precision; Cost/TP $=$ LLM calls per confirmed true positive.}
+FDR $=1-$precision; Cost/TP $=$ LLM calls per confirmed true positive. P, R, and
+F1 are macro means over PRs (each PR the mean of its three runs), so F1 is the
+mean of per-PR F1 and is \emph{not} recoverable as the harmonic mean of the P
+and R columns---the two differ by 2--3 points here, as expected when F1 is
+averaged rather than derived.}
 \label{tab:confirmatory}
 \centering
 \footnotesize
@@ -578,9 +586,11 @@ $-0.119$ on complex PRs, Holm $p{=}1.0$).
   a favorable setting (within-benchmark comparisons hold); SWE-PRBench and E3
   partly offset this. The Sonnet~4.5 robustness arm has now completed at
   confirmatory scale ($N{=}99$) and replicates every registered conclusion
-  (Section~\ref{sec:generation}), so model-robustness of the ranking is shown
-  rather than assumed; the exploratory extensions are
-  small-$n$, single-benchmark probes (execution directional, $n{=}6$). Headline
+  (Section~\ref{sec:generation}); generalizability of the ordering
+  \emph{within} the multi-agent arms remains a limitation rather than a claim,
+  since Consensus and Hierarchical swap between the two models. The exploratory
+  extensions are small-$n$, single-benchmark probes (execution directional,
+  $n{=}6$). Headline
   claims are confirmatory (registered sizes, paired tests, CIs, Holm); finer
   stratifications, RQ3, and the ceiling/capability/execution extensions are
   exploratory, labeled throughout.
