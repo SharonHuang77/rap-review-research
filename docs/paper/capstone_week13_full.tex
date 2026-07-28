@@ -398,7 +398,12 @@ reach, and what the residue requires. Unioning $K$ temperature or cross-family
 draws saturates by ${\sim}4$ sources (Table~\ref{tab:ladder}), and the union of
 \emph{all} eleven configurations we ran (seven model families, a conditioned
 resampler, a temperature sweep) reaches only 0.83 recall (97 PRs), no single
-source worth more than ${\sim}2$ points by leave-one-out---a robust ceiling.
+source worth more than ${\sim}2$ points by leave-one-out---a robust ceiling. The
+two numbers measure different axes: Table~\ref{tab:ladder} adds one draw per
+\emph{family} and plateaus at 0.66, whereas 0.83 unions every draw, so the
+remainder comes from resampling families already in the ladder (the temperature
+sweep and the conditioned arm), not from new families---the plateau is in the
+family dimension, and the total-draw ceiling sits above it.
 (Nova~Pro is both a union member and the clustering judge here; this mild
 circularity is confined to the exploratory union, not the confirmatory contrast
 of Section~\ref{sec:hetero}.) The residue is structured: ${\sim}65\%$ are
@@ -408,16 +413,20 @@ functional hard-core. A deterministic linter out-recalls the eleven-source union
 on its target convention rules (0.54 vs.\ 0.46; hybrid 0.61), so the remaining
 limitation is evidence, not model diversity---and no precision back-end
 (agreement or aspect verification) lifts F1 above a plain union. The
-saturation-to-a-ceiling phenomenon is not Qodo-specific: on 50 c-CRAB
-PRs~\cite{crab} (real review comments---a different oracle), unioning the same
-seven families lifts comment coverage from 36\% (Haiku alone) to a 55\% ceiling
-that saturates by the second-to-third family---a different absolute value under a
-different oracle, but the identical plateau.
+saturation-to-a-ceiling phenomenon is not Qodo-specific. Replicating the hetero
+ladder on 50 c-CRAB PRs~\cite{crab}---a code-review agent benchmark scored here
+against its human review comments, a different oracle from Qodo's injected
+defects---reproduces the same shape at a different level
+(Table~\ref{tab:ladder}, bottom row): coverage jumps 16 points on the first
+added family, plateaus by the second-to-third, and then drifts only from $0.53$
+to $0.55$ across the remaining four. Different oracle, different absolute
+ceiling, identical plateau.
 
 \begin{table}[t]
-\caption{Union recall by number of draws $K$ (semantic matching, 97 Qodo PRs).
-Homo $=$ one model (Haiku) at $T{=}0.7$; hetero $=$ Haiku plus one distinct
-family per rung (Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra).}
+\caption{Union recall by number of draws $K$ (semantic matching). Homo $=$ one
+model (Haiku) at $T{=}0.7$; hetero $=$ Haiku plus one distinct family per rung
+(Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra). The bottom row repeats the hetero
+ladder on a second benchmark with a different oracle.}
 \label{tab:ladder}
 \centering
 \footnotesize
@@ -425,12 +434,20 @@ family per rung (Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra).}
 \toprule
 $K$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
 \midrule
+\multicolumn{8}{@{}l}{\emph{Qodo, 97 PRs (injected defects)}}\\
 Homo ($T{=}0.7$)  & 0.49 & 0.58 & 0.61 & --- & --- & --- & --- \\
 Hetero (families) & 0.51 & 0.61 & 0.64 & 0.65 & 0.65 & 0.66 & 0.66 \\
+\addlinespace[2pt]
+\multicolumn{8}{@{}l}{\emph{c-CRAB, 50 PRs (human review comments)}}\\
+Hetero (families) & 0.36 & 0.52 & 0.53 & 0.53 & 0.53 & 0.55 & 0.55 \\
 \bottomrule
 \end{tabular}
-\\[2pt]{\footnotesize Diversity bonus (hetero $-$ homo) $=$ ${+}0.03$ at
-$K{=}2,3$. Family order affects per-step marginals, not the $K{=}\max$ total.}
+\\[2pt]{\footnotesize The two Qodo ladders start from different single draws:
+homo $K{=}1$ is one Haiku draw at $T{=}0.7$, hetero $K{=}1$ the $T{=}0$
+confirmatory anchor---hence 0.49 vs.\ 0.51. Diversity bonus (hetero $-$ homo)
+$=$ ${+}0.03$ at $K{=}2,3$ on Qodo. Family order affects per-step marginals, not
+the $K{=}\max$ total. Both ladders plateau by ${\sim}3$ families; the c-CRAB
+level is lower because coverage is scored against sparse human comments.}
 \end{table}
 
 \subsection{Neither capability nor generation-side structure closes the gap}
