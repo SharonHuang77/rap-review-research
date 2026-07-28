@@ -299,18 +299,20 @@ latency, and cost-per-TP (H-efficiency).
 On SWE-PRBench the shape replicates in natural data: Generalists-3 raises
 coverage of human comments (0.68 vs.\ 0.51, Holm $p{=}0.001$; Hierarchical 0.63,
 $p{=}0.05$), but F1 is a four-way tie (0.325 vs.\ 0.329--0.357, all n.s.,
-$|\delta|{\le}0.06$). A registered Sonnet~4.5 robustness arm, now completed at
-confirmatory scale ($N{=}99$), confirms the ordering is not a Haiku artifact:
-every registered conclusion replicates---the specialization null (Hierarchical
-vs.\ Generalists-3 recall median paired $\tilde\Delta{=}0.000$), Agentless F1
-dominance (0.547 vs.\ 0.389--0.428, Holm $p{<}0.001$, $\delta$ 0.32--0.45), the
-recall-not-F1 pattern, and H-verify's failure. Absolute F1 rises with the
-stronger model (Agentless $0.487{\to}0.547$) and the headline ordering---the
-single-pass baseline above every multi-agent arm---is unchanged. The ranking
-\emph{within} the multi-agent arms is not stable, however: Consensus and
-Hierarchical swap under Sonnet (0.428 vs.\ 0.423, against 0.369 vs.\ 0.378 under
-Haiku), so we claim model-robustness for the registered conclusions and the
-headline ordering, not for the ordering among the multi-agent arms.
+$|\delta|{\le}0.06$). A registered Sonnet~4.5 robustness arm, completed at
+confirmatory scale on the same 99 Qodo PRs, confirms the ordering is not a Haiku
+artifact: Agentless keeps its F1 dominance (0.546 vs.\ 0.388--0.425, Holm
+$p{<}0.001$, $\delta$ 0.32--0.45), the recall-not-F1 pattern holds, and H-verify
+still fails. H2 fails \emph{harder} rather than identically: the paired median is
+again $0.000$, but Hierarchical now trails Generalists-3 on recall significantly
+(0.636 vs.\ 0.672, $p{=}0.012$, $\delta{=}{-}0.078$, CI $[-0.143,-0.017]$)---under
+the stronger model specialization is not merely no better than compute-matched
+sampling but measurably worse. Absolute F1 rises (Agentless $0.487{\to}0.546$)
+and the headline ordering is unchanged, but the ordering \emph{within} the
+multi-agent arms is not: Consensus and Hierarchical are indistinguishable and
+change places (0.425 vs.\ 0.423 under Sonnet; 0.369 vs.\ 0.378 under Haiku). We
+therefore claim model-robustness for the registered conclusions and the headline
+ordering, not for the ordering among the multi-agent arms.
 
 Finally, the pre-registered rescue fails. A self-consistency filter (keep
 findings recurring in ${\geq}2$ of 3 runs) leaves Hierarchical at 0.378
@@ -349,7 +351,8 @@ frontier families (Kimi K2.5, GLM~5), matched cross-model by a fourth family
 (Nova Pro) as pair judge to keep the chain non-circular, and tested on the
 registered 80-PR remainder. \textbf{Both sub-claims hold.} Findings corroborated
 by ${\geq}2$ families reach per-PR precision 0.716 vs.\ 0.575 single-arm
-($\bar\Delta{=}{+}0.141$, CI $[0.094,0.189]$, $p{<}10^{-4}$, $\delta{=}0.364$) at
+($n{=}79$ PRs with findings; $\bar\Delta{=}{+}0.141$, CI $[0.094,0.189]$,
+$p{<}10^{-4}$, $\delta{=}0.364$) at
 equal-or-higher F1, and findings all three families produce are golden-matched
 \textbf{89\%} of the time versus \textbf{54\%} for one model's three-run
 recurrence (gap ${+}0.348$, CI $[0.286,0.412]$).
@@ -415,10 +418,11 @@ sweep and the conditioned arm), not from new families---the plateau is in the
 family dimension, and the total-draw ceiling sits above it.
 (Nova~Pro is both a union member and the clustering judge here; this mild
 circularity is confined to the exploratory union, not the confirmatory contrast
-of Section~\ref{sec:hetero}.) The residue is structured: ${\sim}65\%$ are
-repository conventions (36\% of rule violations are reached by \emph{no}
-source---a \emph{correlated} blind spot) and ${\sim}15\%$ a repo-integrated
-functional hard-core. A deterministic linter out-recalls the eleven-source union
+of Section~\ref{sec:hetero}.) The residue is structured: ${\sim}65\%$
+lint-targetable conventions, ${\sim}20\%$ conceptual conventions
+(policy/framework rules), and ${\sim}15\%$ a repo-integrated functional
+hard-core---36\% of rule violations are reached by \emph{no} source, a
+\emph{correlated} blind spot. A deterministic linter out-recalls the eleven-source union
 on its target convention rules (0.54 vs.\ 0.46; hybrid 0.61), so the remaining
 limitation is evidence, not model diversity---and no precision back-end
 (agreement or aspect verification) lifts F1 above a plain union. The
