@@ -19,12 +19,13 @@
 % MDE (IV-A), Gwet AC1/PABAK kappa-paradox robustness (completeness).
 %
 % Remaining TODO (homework scope; OSF DOI not needed for a class submission):
-%  - DONE: Fig. 1 top title banner cropped (fig1_architectures_week13.png);
-%    "...Topologies" while the paper now says "Workflows". Crop the top title
-%    banner from fig1_architectures_week13.png (or relabel "Topologies" ->
-%    "Workflows"). The three earlier image-content fixes (rung-capability
-%    banner, "Deterministic" labels, dropping "Same Roles") are already done in
-%    this version of the figure.
+%  - DONE: Fig. 1 now uses fig1_architectures_week13.png — the redundant top
+%    title banner (which still read "Topologies") is cropped, and the three
+%    earlier image-content fixes (rung-capability banner, "Deterministic"
+%    labels, dropping "Same Roles") were already applied.
+%  - The anonymized IEMCON submission is docs/paper/iemcon2026.tex: identical
+%    text, anonymous author block, deliberately NOT committed while under
+%    double-blind review.
 % =============================================================================
 
 \documentclass[conference]{IEEEtran}
@@ -395,7 +396,7 @@ without repository context cannot know.}
 \label{sec:ceiling}
 Communication settled, we ask how far decorrelated \emph{sampling} alone can
 reach, and what the residue requires. Unioning $K$ temperature or cross-family
-draws saturates by ${\sim}4$ sources (Table~\ref{tab:ladder}), and the union of
+draws saturates by three to four sources (Table~\ref{tab:ladder}), and the union of
 \emph{all} eleven configurations we ran (seven model families, a conditioned
 resampler, a temperature sweep) reaches only 0.83 recall (97 PRs), no single
 source worth more than ${\sim}2$ points by leave-one-out---a robust ceiling. The
@@ -444,10 +445,14 @@ Hetero (families) & 0.36 & 0.52 & 0.53 & 0.53 & 0.53 & 0.55 & 0.55 \\
 \end{tabular}
 \\[2pt]{\footnotesize The two Qodo ladders start from different single draws:
 homo $K{=}1$ is one Haiku draw at $T{=}0.7$, hetero $K{=}1$ the $T{=}0$
-confirmatory anchor---hence 0.49 vs.\ 0.51. Diversity bonus (hetero $-$ homo)
-$=$ ${+}0.03$ at $K{=}2,3$ on Qodo. Family order affects per-step marginals, not
-the $K{=}\max$ total. Both ladders plateau by ${\sim}3$ families; the c-CRAB
-level is lower because coverage is scored against sparse human comments.}
+confirmatory anchor---hence 0.49 vs.\ 0.51. The raw hetero$-$homo gap is
+${+}0.03$ at $K{=}2,3$, but ${+}0.02$ of it is that anchor offset; net of it the
+diversity-attributable increment is ${\approx}{+}0.01$ ($K{=}1{\to}3$ gains of
+${+}0.13$ hetero vs.\ ${+}0.12$ homo)---smaller than the raw gap suggests, and
+consistent with the family-dimension plateau. Family order affects per-step
+marginals, not the $K{=}\max$ total. The c-CRAB ladder plateaus by ${\sim}3$
+families, the Qodo hetero ladder by ${\sim}4$; c-CRAB's level is lower because
+coverage is scored against sparse human comments.}
 \end{table}
 
 \subsection{Neither capability nor generation-side structure closes the gap}
