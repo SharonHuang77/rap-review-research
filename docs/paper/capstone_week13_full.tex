@@ -299,9 +299,10 @@ latency, and cost-per-TP (H-efficiency).
 On SWE-PRBench the shape replicates in natural data: Generalists-3 raises
 coverage of human comments (0.68 vs.\ 0.51, Holm $p{=}0.001$; Hierarchical 0.63,
 $p{=}0.05$), but F1 is a four-way tie (0.325 vs.\ 0.329--0.357, all n.s.,
-$|\delta|{\le}0.06$). A registered Sonnet~4.5 robustness arm, completed at
-confirmatory scale on the same 99 Qodo PRs, confirms the ordering is not a Haiku
-artifact: Agentless keeps its F1 dominance (0.546 vs.\ 0.388--0.425, Holm
+$|\delta|{\le}0.06$). The Sonnet~4.5 robustness arm---declared in the
+pre-registration as a robustness check rather than as a registered
+hypothesis---has now run at full scale on the same 99 Qodo PRs, and confirms the
+ordering is not a Haiku artifact: Agentless keeps its F1 dominance (0.546 vs.\ 0.388--0.425, Holm
 $p{<}0.001$, $\delta$ 0.32--0.45), the recall-not-F1 pattern holds, and H-verify
 still fails. H2 fails \emph{harder} rather than identically: the paired median is
 again $0.000$, but Hierarchical now trails Generalists-3 on recall significantly
@@ -510,7 +511,7 @@ completeness bounds their interpretation. We audited it confirmatorily: three
 independent judge families read every golden-\emph{unmatched} finding against the
 diff (``does this identify a genuine problem?''), plus a calibration pass on
 golden-\emph{matched} findings. Llama~3.3 calls 76\% of unmatched findings real
-(92\% on known defects); Mistral Large~3 calls 73\% (90\%); DeepSeek~V3.2 calls
+(91\% on known defects); Mistral Large~3 calls 73\% (89\%); DeepSeek~V3.2 calls
 only 33\% (71\%).
 
 The disagreement is definitional, not capability: DeepSeek is a strict
@@ -588,8 +589,8 @@ $-0.119$ on complex PRs, Holm $p{=}1.0$).
   specialization from sampling, and evaluation replays deterministically.
   \item \textbf{External.} Qodo is synthetic-injection, so absolute scores sit on
   a favorable setting (within-benchmark comparisons hold); SWE-PRBench and E3
-  partly offset this. The Sonnet~4.5 robustness arm has now completed at
-  confirmatory scale ($N{=}99$) and replicates every registered conclusion
+  partly offset this. The Sonnet~4.5 robustness arm has now run at full scale
+  ($N{=}99$) and reproduces every registered conclusion
   (Section~\ref{sec:generation}); generalizability of the ordering
   \emph{within} the multi-agent arms remains a limitation rather than a claim,
   since Consensus and Hierarchical swap between the two models. The exploratory
