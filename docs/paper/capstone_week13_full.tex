@@ -64,9 +64,10 @@ design, and a Decentralized Peer Consensus design---holding the model, PR
 snapshot, prompts, and evaluation pipeline fixed, across three datasets:
 injected-defect ground truth, human-reviewed PRs, and a live industrial
 repository. Three findings emerge. \emph{Communication is not the lever:} role
-specialization yields no improvement over compute-matched sampling ($p{=}0.73$),
-and no multi-agent workflow exceeds the single-pass baseline's F1, buying recall
-only at 3--9$\times$ the call budget. \emph{Verification is:} findings that
+specialization yields no improvement over compute-matched sampling ($p{=}0.73$)
+and under a stronger model is significantly \emph{worse} ($p{=}0.012$), and no
+multi-agent workflow exceeds the single-pass baseline's F1---the $3\times$-cost
+arms buy recall, the $9\times$ arm buys none. \emph{Verification is:} findings that
 independent model families agree on match injected ground truth 89\% of the time
 versus 54\% for one model repeating itself---error decorrelation paying on
 precision, not coverage. \emph{Grounding bounds both:} unioning every
@@ -264,7 +265,7 @@ calls.
 \toprule
 \textbf{Hypothesis} & \textbf{Prediction} & \textbf{Outcome} \\
 \midrule
-H-specialization \emph{(primary)} & Specialists beat compute-matched generalists & \textbf{Null} ($p{=}0.73$) \\
+H-specialization \emph{(primary)} & Specialists beat compute-matched generalists & \textbf{Null} ($p{=}0.73$); negative under the Sonnet robustness arm (\S\ref{sec:generation}) \\
 H-compute        & 3 samples beat 1 & Supported on recall (0.63 vs.\ 0.50), not F1 \\
 H-communication  & Consensus beats Hierarchical & Unsupported (Holm $p{=}0.12$) \\
 H-efficiency     & Cost rises along the ladder & Supported (monotonic) \\
@@ -333,8 +334,9 @@ the one-to-one convention used for P/R/F1 the same data gives 0.39/0.94/0.93/3.3
 and an $8.6\times$ rather than $5\times$ Consensus premium. P, R, and
 F1 are macro means over PRs (each PR the mean of its three runs), so F1 is the
 mean of per-PR F1 and is \emph{not} recoverable as the harmonic mean of the P
-and R columns---the two differ by 2--3 points here, as expected when F1 is
-averaged rather than derived.}
+and R columns---the two differ by 2.0--3.3 points here, as expected when F1 is
+averaged rather than derived. Cost/TP is pooled over the registered 80-PR
+remainder rather than all 99.}
 \label{tab:confirmatory}
 \centering
 \footnotesize
@@ -611,10 +613,12 @@ $-0.119$ on complex PRs, Holm $p{=}1.0$).
 
 Under a pre-registered, frozen-model design, none of the tested multi-agent
 workflows improved automated code review. Role specialization adds nothing over
-compute-matched sampling (the primary null), no arm exceeds the single-pass
-baseline's F1, extra agents buy recall at a 3--9$\times$ larger per-run call
-budget, the self-consistency rescue our own pilot suggested does not replicate,
-and the effect does not grow with PR complexity. The \emph{verification} axis is
+compute-matched sampling (the primary null)---and under the stronger model it is
+significantly \emph{worse} on recall, so the problem is not that the gain is
+small but that the direction is wrong. No arm exceeds the single-pass baseline's
+F1; the $3\times$-cost arms buy recall while the $9\times$ arm buys none; the
+self-consistency rescue our own pilot suggested does not replicate; and the
+effect does not grow with PR complexity. The \emph{verification} axis is
 where multi-agent value lives: agreement between independent model families is a
 registered precision instrument that survives a change of pair
 judge---findings all three families produce match injected ground truth 89\% of
