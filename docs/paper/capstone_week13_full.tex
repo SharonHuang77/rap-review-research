@@ -19,12 +19,13 @@
 % MDE (IV-A), Gwet AC1/PABAK kappa-paradox robustness (completeness).
 %
 % Remaining TODO (homework scope; OSF DOI not needed for a class submission):
-%  - Fig. 1's embedded title duplicates the LaTeX \caption and reads
-%    "...Topologies" while the paper now says "Workflows". Crop the top title
-%    banner from fig1_architectures_week11.png (or relabel "Topologies" ->
-%    "Workflows"). The three earlier image-content fixes (rung-capability
-%    banner, "Deterministic" labels, dropping "Same Roles") are already done in
-%    this version of the figure.
+%  - DONE: Fig. 1 now uses fig1_architectures_week13.png — the redundant top
+%    title banner (which still read "Topologies") is cropped, and the three
+%    earlier image-content fixes (rung-capability banner, "Deterministic"
+%    labels, dropping "Same Roles") were already applied.
+%  - The anonymized IEMCON submission is docs/paper/iemcon2026.tex: identical
+%    text, anonymous author block, deliberately NOT committed while under
+%    double-blind review.
 % =============================================================================
 
 \documentclass[conference]{IEEEtran}
@@ -63,9 +64,10 @@ design, and a Decentralized Peer Consensus design---holding the model, PR
 snapshot, prompts, and evaluation pipeline fixed, across three datasets:
 injected-defect ground truth, human-reviewed PRs, and a live industrial
 repository. Three findings emerge. \emph{Communication is not the lever:} role
-specialization yields no improvement over compute-matched sampling ($p{=}0.73$),
-and no multi-agent workflow exceeds the single-pass baseline's F1, buying recall
-only at 3--9$\times$ the call budget. \emph{Verification is:} findings that
+specialization yields no improvement over compute-matched sampling ($p{=}0.73$)
+and under a stronger model is significantly \emph{worse} ($p{=}0.012$), and no
+multi-agent workflow exceeds the single-pass baseline's F1---the $3\times$-cost
+arms buy recall, the $9\times$ arm buys none. \emph{Verification is:} findings that
 independent model families agree on match injected ground truth 89\% of the time
 versus 54\% for one model repeating itself---error decorrelation paying on
 precision, not coverage. \emph{Grounding bounds both:} unioning every
@@ -263,7 +265,7 @@ calls.
 \toprule
 \textbf{Hypothesis} & \textbf{Prediction} & \textbf{Outcome} \\
 \midrule
-H-specialization \emph{(primary)} & Specialists beat compute-matched generalists & \textbf{Null} ($p{=}0.73$) \\
+H-specialization \emph{(primary)} & Specialists beat compute-matched generalists & \textbf{Null} ($p{=}0.73$); negative under the Sonnet robustness arm (\S\ref{sec:generation}) \\
 H-compute        & 3 samples beat 1 & Supported on recall (0.63 vs.\ 0.50), not F1 \\
 H-communication  & Consensus beats Hierarchical & Unsupported (Holm $p{=}0.12$) \\
 H-efficiency     & Cost rises along the ladder & Supported (monotonic) \\
@@ -298,10 +300,21 @@ latency, and cost-per-TP (H-efficiency).
 On SWE-PRBench the shape replicates in natural data: Generalists-3 raises
 coverage of human comments (0.68 vs.\ 0.51, Holm $p{=}0.001$; Hierarchical 0.63,
 $p{=}0.05$), but F1 is a four-way tie (0.325 vs.\ 0.329--0.357, all n.s.,
-$|\delta|{\le}0.06$). An exploratory Sonnet~4.5 pilot preserves the headline
-claims---the single-pass F1 lead and the specialization null both hold---though
-the Consensus arm's rank \emph{among} the multi-agent arms shifted; the
-confirmatory robustness arm is deferred (Section~\ref{sec:threats}).
+$|\delta|{\le}0.06$). The Sonnet~4.5 robustness arm---declared in the
+pre-registration as a robustness check rather than as a registered
+hypothesis---has now run at full scale on the same 99 Qodo PRs, and confirms the
+ordering is not a Haiku artifact: Agentless keeps its F1 dominance (0.546 vs.\ 0.388--0.425, Holm
+$p{<}0.001$, $\delta$ 0.32--0.45), the recall-not-F1 pattern holds, and H-verify
+still fails. H2 fails \emph{harder} rather than identically: the paired median is
+again $0.000$, but Hierarchical now trails Generalists-3 on recall significantly
+(0.636 vs.\ 0.672, $p{=}0.012$, $\delta{=}{-}0.078$, CI $[-0.143,-0.017]$)---under
+the stronger model specialization is not merely no better than compute-matched
+sampling but measurably worse. Absolute F1 rises (Agentless $0.487{\to}0.546$)
+and the headline ordering is unchanged, but the ordering \emph{within} the
+multi-agent arms is not: Consensus and Hierarchical are indistinguishable and
+change places (0.425 vs.\ 0.423 under Sonnet; 0.369 vs.\ 0.378 under Haiku). We
+therefore claim model-robustness for the registered conclusions and the headline
+ordering, not for the ordering among the multi-agent arms.
 
 Finally, the pre-registered rescue fails. A self-consistency filter (keep
 findings recurring in ${\geq}2$ of 3 runs) leaves Hierarchical at 0.378
@@ -312,8 +325,14 @@ its confident errors---which motivates the next section.
 
 \begin{table}[t]
 \caption{E1 (Qodo, 99 PRs): review quality and inference overhead. Agentless is
-precision- and F1-dominant; extra agents buy recall at 3--9$\times$ the calls.
-FDR $=1-$precision; Cost/TP $=$ LLM calls per confirmed true positive.}
+precision- and F1-dominant; the two $3\times$-cost arms buy recall, the
+$9\times$ arm does not. FDR $=1-$precision. P, R, and F1 are macro means over
+PRs (each the mean of three runs), so F1 is the mean of per-PR F1, not the
+harmonic mean of the columns (the two differ by 2.0--3.3 points). Cost/TP $=$
+LLM calls per golden-confirmed finding over the registered 80-PR remainder,
+counting repeat reports of one defect separately---unlike the one-to-one
+matching behind P/R/F1, which would give an $8.6\times$ Consensus premium
+instead of $5\times$.}
 \label{tab:confirmatory}
 \centering
 \footnotesize
@@ -336,7 +355,8 @@ frontier families (Kimi K2.5, GLM~5), matched cross-model by a fourth family
 (Nova Pro) as pair judge to keep the chain non-circular, and tested on the
 registered 80-PR remainder. \textbf{Both sub-claims hold.} Findings corroborated
 by ${\geq}2$ families reach per-PR precision 0.716 vs.\ 0.575 single-arm
-($\bar\Delta{=}{+}0.141$, CI $[0.094,0.189]$, $p{<}10^{-4}$, $\delta{=}0.364$) at
+($n{=}79$ PRs with findings; $\bar\Delta{=}{+}0.141$, CI $[0.094,0.189]$,
+$p{<}10^{-4}$, $\delta{=}0.364$) at
 equal-or-higher F1, and findings all three families produce are golden-matched
 \textbf{89\%} of the time versus \textbf{54\%} for one model's three-run
 recurrence (gap ${+}0.348$, CI $[0.286,0.412]$).
@@ -391,24 +411,39 @@ without repository context cannot know.}
 \label{sec:ceiling}
 Communication settled, we ask how far decorrelated \emph{sampling} alone can
 reach, and what the residue requires. Unioning $K$ temperature or cross-family
-draws saturates by ${\sim}4$ sources (Table~\ref{tab:ladder}), and the union of
+draws saturates by three to four sources (Table~\ref{tab:ladder}), and the union of
 \emph{all} eleven configurations we ran (seven model families, a conditioned
 resampler, a temperature sweep) reaches only 0.83 recall (97 PRs), no single
-source worth more than ${\sim}2$ points by leave-one-out---a robust ceiling.
+source worth more than ${\sim}2$ points by leave-one-out---a robust ceiling. The
+two numbers measure different axes: Table~\ref{tab:ladder} adds one draw per
+\emph{family} and plateaus at 0.66, whereas 0.83 unions every draw, so the
+remainder comes from resampling families already in the ladder (the temperature
+sweep and the conditioned arm), not from new families---the plateau is in the
+family dimension, and the total-draw ceiling sits above it.
 (Nova~Pro is both a union member and the clustering judge here; this mild
 circularity is confined to the exploratory union, not the confirmatory contrast
-of Section~\ref{sec:hetero}.) The residue is structured: ${\sim}65\%$ are
-repository conventions (36\% of rule violations are reached by \emph{no}
-source---a \emph{correlated} blind spot) and ${\sim}15\%$ a repo-integrated
-functional hard-core. A deterministic linter out-recalls the eleven-source union
+of Section~\ref{sec:hetero}.) The residue is structured: ${\sim}65\%$
+lint-targetable conventions, ${\sim}20\%$ conceptual conventions
+(policy/framework rules), and ${\sim}15\%$ a repo-integrated functional
+hard-core---36\% of rule violations are reached by \emph{no} source, a
+\emph{correlated} blind spot. A deterministic linter out-recalls the eleven-source union
 on its target convention rules (0.54 vs.\ 0.46; hybrid 0.61), so the remaining
 limitation is evidence, not model diversity---and no precision back-end
-(agreement or aspect verification) lifts F1 above a plain union.
+(agreement or aspect verification) lifts F1 above a plain union. The
+saturation-to-a-ceiling phenomenon is not Qodo-specific. Replicating the hetero
+ladder on 50 c-CRAB PRs~\cite{crab}---a code-review agent benchmark scored here
+against its human review comments, a different oracle from Qodo's injected
+defects---reproduces the same shape at a different level
+(Table~\ref{tab:ladder}, bottom row): coverage jumps 16 points on the first
+added family, plateaus by the second-to-third, and then drifts only from $0.53$
+to $0.55$ across the remaining four. Different oracle, different absolute
+ceiling, identical plateau.
 
 \begin{table}[t]
-\caption{Union recall by number of draws $K$ (semantic matching, 97 Qodo PRs).
-Homo $=$ one model (Haiku) at $T{=}0.7$; hetero $=$ Haiku plus one distinct
-family per rung (Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra).}
+\caption{Union recall by number of draws $K$ (semantic matching). Homo $=$ one
+model (Haiku) at $T{=}0.7$; hetero $=$ Haiku plus one distinct family per rung
+(Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra). The bottom row repeats the hetero
+ladder on a second benchmark with a different oracle.}
 \label{tab:ladder}
 \centering
 \footnotesize
@@ -416,12 +451,24 @@ family per rung (Kimi, GLM, DeepSeek, Nova, Llama~4, Palmyra).}
 \toprule
 $K$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 \\
 \midrule
+\multicolumn{8}{@{}l}{\emph{Qodo, 97 PRs (injected defects)}}\\
 Homo ($T{=}0.7$)  & 0.49 & 0.58 & 0.61 & --- & --- & --- & --- \\
 Hetero (families) & 0.51 & 0.61 & 0.64 & 0.65 & 0.65 & 0.66 & 0.66 \\
+\addlinespace[2pt]
+\multicolumn{8}{@{}l}{\emph{c-CRAB, 50 PRs (human review comments)}}\\
+Hetero (families) & 0.36 & 0.52 & 0.53 & 0.53 & 0.53 & 0.55 & 0.55 \\
 \bottomrule
 \end{tabular}
-\\[2pt]{\footnotesize Diversity bonus (hetero $-$ homo) $=$ ${+}0.03$ at
-$K{=}2,3$. Family order affects per-step marginals, not the $K{=}\max$ total.}
+\\[2pt]{\footnotesize The two Qodo ladders start from different single draws:
+homo $K{=}1$ is one Haiku draw at $T{=}0.7$, hetero $K{=}1$ the $T{=}0$
+confirmatory anchor---hence 0.49 vs.\ 0.51. The raw hetero$-$homo gap is
+${+}0.03$ at $K{=}2,3$, but ${+}0.02$ of it is that anchor offset; net of it the
+diversity-attributable increment is ${\approx}{+}0.01$ ($K{=}1{\to}3$ gains of
+${+}0.13$ hetero vs.\ ${+}0.12$ homo)---smaller than the raw gap suggests, and
+consistent with the family-dimension plateau. Family order affects per-step
+marginals, not the $K{=}\max$ total. The c-CRAB ladder plateaus by ${\sim}3$
+families, the Qodo hetero ladder by ${\sim}4$; c-CRAB's level is lower because
+coverage is scored against sparse human comments.}
 \end{table}
 
 \subsection{Neither capability nor generation-side structure closes the gap}
@@ -434,7 +481,7 @@ types over Haiku equally (functional $0.70{\to}0.74$, rule $0.32{\to}0.37$).
 \emph{Module decomposition (exploratory):} per-module agents unioned beat one
 whole-PR review by ${+}6.4$ recall ($p{=}0.016$), but only through the
 ${\sim}2.6\times$ compute---at a matched budget module-union \emph{trails} plain
-multi-sampling (0.54 vs.\ 0.57, n.s.). \emph{Prompt specialization
+multi-sampling (0.54 vs.\ 0.57, $p{=}0.44$, $n{=}24$). \emph{Prompt specialization
 (exploratory):} convention-only and functional-only personas suppress output
 (5.3 vs.\ 16.1 findings/PR) and \emph{reduce} per-type recall (conventions 24\%
 vs.\ 32\%, functional 59\% vs.\ 68\%), the team reaching recall 0.47, below the
@@ -467,7 +514,7 @@ completeness bounds their interpretation. We audited it confirmatorily: three
 independent judge families read every golden-\emph{unmatched} finding against the
 diff (``does this identify a genuine problem?''), plus a calibration pass on
 golden-\emph{matched} findings. Llama~3.3 calls 76\% of unmatched findings real
-(92\% on known defects); Mistral Large~3 calls 73\% (90\%); DeepSeek~V3.2 calls
+(91\% on known defects); Mistral Large~3 calls 73\% (89\%); DeepSeek~V3.2 calls
 only 33\% (71\%).
 
 The disagreement is definitional, not capability: DeepSeek is a strict
@@ -523,8 +570,8 @@ cross-family agreement can here be neither confirmed nor refuted.
 The registered complexity stratifier (PR type) was not persisted, so we proxy it
 by the number of files an instance's defects span (\textbf{exploratory}). No
 interaction survives on any contrast (all Holm $p{\ge}0.42$, $|\delta|{\le}0.12$):
-complexity degrades every arm by a similar margin and the ordering is stable, so
-no topology rescues complex PRs. The only directional hint runs \emph{against} the
+complexity degrades every arm by a similar margin and no arm gains relative
+advantage, so no topology rescues complex PRs. The only directional hint runs \emph{against} the
 registered prediction (Consensus$-$Hierarchical recall $0.000$ on simple vs.\
 $-0.119$ on complex PRs, Holm $p{=}1.0$).
 
@@ -545,10 +592,13 @@ $-0.119$ on complex PRs, Holm $p{=}1.0$).
   specialization from sampling, and evaluation replays deterministically.
   \item \textbf{External.} Qodo is synthetic-injection, so absolute scores sit on
   a favorable setting (within-benchmark comparisons hold); SWE-PRBench and E3
-  partly offset this. The Sonnet~4.5 robustness arm at confirmatory scale is
-  deferred (cost prohibitive), so within-multi-agent-arm ranking
-  generalizability is a limitation, not a claim; the exploratory extensions are
-  small-$n$, single-benchmark probes (execution directional, $n{=}6$). Headline
+  partly offset this. The Sonnet~4.5 robustness arm has now run at full scale
+  ($N{=}99$) and reproduces every registered conclusion
+  (Section~\ref{sec:generation}); generalizability of the ordering
+  \emph{within} the multi-agent arms remains a limitation rather than a claim,
+  since Consensus and Hierarchical swap between the two models. The exploratory
+  extensions are small-$n$, single-benchmark probes (execution directional,
+  $n{=}6$). Headline
   claims are confirmatory (registered sizes, paired tests, CIs, Holm); finer
   stratifications, RQ3, and the ceiling/capability/execution extensions are
   exploratory, labeled throughout.
@@ -559,10 +609,12 @@ $-0.119$ on complex PRs, Holm $p{=}1.0$).
 
 Under a pre-registered, frozen-model design, none of the tested multi-agent
 workflows improved automated code review. Role specialization adds nothing over
-compute-matched sampling (the primary null), no arm exceeds the single-pass
-baseline's F1, extra agents buy recall at a 3--9$\times$ larger per-run call
-budget, the self-consistency rescue our own pilot suggested does not replicate,
-and the effect does not grow with PR complexity. The \emph{verification} axis is
+compute-matched sampling (the primary null)---and under the stronger model it is
+significantly \emph{worse} on recall, so the problem is not that the gain is
+small but that the direction is wrong. No arm exceeds the single-pass baseline's
+F1; the $3\times$-cost arms buy recall while the $9\times$ arm buys none; the
+self-consistency rescue our own pilot suggested does not replicate; and the
+effect does not grow with PR complexity. The \emph{verification} axis is
 where multi-agent value lives: agreement between independent model families is a
 registered precision instrument that survives a change of pair
 judge---findings all three families produce match injected ground truth 89\% of
@@ -604,11 +656,23 @@ C.~E. Jimenez et al., ``SWE-bench: Can language models resolve real-world
 GitHub issues?'' in \emph{Proc. ICLR}, 2024.
 
 \bibitem{survey}
-X.~Zhang et al., ``LLM-based multi-agent systems for software engineering:
-Literature review, vision and the road ahead,'' arXiv preprint, 2024.
+J.~He, C.~Treude, and D.~Lo, ``LLM-based multi-agent systems for software
+engineering: Literature review, vision and the road ahead,''
+arXiv:2404.04834, 2024.
 
 \bibitem{whyfail}
-Y.~Li et al., ``Why do multi-agent LLM systems fail?'' arXiv preprint, 2025.
+M.~Cemri et al., ``Why do multi-agent LLM systems fail?'' arXiv:2503.13657,
+2025.
+
+\bibitem{pappu}
+A.~Pappu, B.~El, H.~Cao, C.~di~Nolfo, Y.~Sun, M.~Cao, and J.~Zou,
+``Multi-agent teams hold experts back,'' in \emph{Proc. ICML}, 2026
+(arXiv:2602.01011).
+
+\bibitem{selfmoa}
+W.~Li, Y.~Lin, M.~Xia, and C.~Jin, ``Rethinking mixture-of-agents: Is
+mixing different large language models beneficial?'' arXiv:2502.00674,
+2025.
 
 \bibitem{llmjudge}
 L.~Zheng et al., ``Judging LLM-as-a-judge with MT-Bench and Chatbot Arena,''
@@ -629,24 +693,14 @@ generations with a panel of diverse models,'' arXiv:2404.18796, 2024.
 A.~Panickssery, S.~R. Bowman, and S.~Feng, ``LLM evaluators recognize and
 favor their own generations,'' arXiv:2404.13076, 2024.
 
-\bibitem{pappu}
-A.~Pappu, B.~El, H.~Cao, C.~di~Nolfo, Y.~Sun, M.~Cao, and J.~Zou,
-``Multi-agent teams hold experts back,'' in \emph{Proc. ICML}, 2026
-(arXiv:2602.01011).
-
-\bibitem{selfmoa}
-W.~Li, Y.~Lin, M.~Xia, and C.~Jin, ``Rethinking mixture-of-agents: Is
-mixing different large language models beneficial?'' arXiv:2502.00674,
-2025.
-
-\bibitem{zietsman}
-C.~Zietsman, ``The specification as quality gate: Three hypotheses on
-AI-assisted code review,'' arXiv:2603.25773, 2026.
-
 \bibitem{sclar}
 M.~Sclar, Y.~Choi, Y.~Tsvetkov, and A.~Suhr, ``Quantifying language models'
 sensitivity to spurious features in prompt design,'' in \emph{Proc. ICLR},
 2024 (arXiv:2310.11324).
+
+\bibitem{zietsman}
+C.~Zietsman, ``The specification as quality gate: Three hypotheses on
+AI-assisted code review,'' arXiv:2603.25773, 2026.
 
 % --- week-13 additions (execution / grounding probes). ---
 \bibitem{crab}
