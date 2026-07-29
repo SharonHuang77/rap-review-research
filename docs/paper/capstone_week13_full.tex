@@ -326,17 +326,13 @@ its confident errors---which motivates the next section.
 \begin{table}[t]
 \caption{E1 (Qodo, 99 PRs): review quality and inference overhead. Agentless is
 precision- and F1-dominant; the two $3\times$-cost arms buy recall, the
-$9\times$ arm does not.
-FDR $=1-$precision. Cost/TP $=$ LLM calls per golden-confirmed finding, pooled
-over the 80-PR set, counting every finding that matches a golden defect
-including repeats---the generous reading for the multi-agent arms, since under
-the one-to-one convention used for P/R/F1 the same data gives 0.39/0.94/0.93/3.36
-and an $8.6\times$ rather than $5\times$ Consensus premium. P, R, and
-F1 are macro means over PRs (each PR the mean of its three runs), so F1 is the
-mean of per-PR F1 and is \emph{not} recoverable as the harmonic mean of the P
-and R columns---the two differ by 2.0--3.3 points here, as expected when F1 is
-averaged rather than derived. Cost/TP is pooled over the registered 80-PR
-remainder rather than all 99.}
+$9\times$ arm does not. FDR $=1-$precision. P, R, and F1 are macro means over
+PRs (each the mean of three runs), so F1 is the mean of per-PR F1, not the
+harmonic mean of the columns (the two differ by 2.0--3.3 points). Cost/TP $=$
+LLM calls per golden-confirmed finding over the registered 80-PR remainder,
+counting repeat reports of one defect separately---unlike the one-to-one
+matching behind P/R/F1, which would give an $8.6\times$ Consensus premium
+instead of $5\times$.}
 \label{tab:confirmatory}
 \centering
 \footnotesize
